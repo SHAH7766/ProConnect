@@ -14,13 +14,18 @@ const Register = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = async (e) => {
+ const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
+
+    // 1. Get the base URL from your Vercel Environment Variable
+    const baseURL = import.meta.env.VITE_APP_URL;
+
+    // 2. Build the endpoint dynamically
     const endpoint = isProvider 
-      ? 'http://localhost:8000/api/regprovider' 
-      : 'http://localhost:8000/api/reguser';
+      ? `${baseURL}/api/regprovider` 
+      : `${baseURL}/api/reguser`;
     
     try {
       const { data } = await axios.post(endpoint, formData);
@@ -32,8 +37,7 @@ const Register = () => {
       console.error(err);
       setError(err.response?.data?.message || 'Registration failed. Please try again.');
     }
-  };
-
+};
   return (
     <div className="d-flex align-items-center justify-content-center py-5" style={{ minHeight: 'calc(100vh - 76px)', background: 'var(--bg-main)' }}>
       <Container>

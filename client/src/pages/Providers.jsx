@@ -23,17 +23,20 @@ const Providers = () => {
   };
 
   const fetchProviders = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get('http://localhost:8000/api/getallproviders');
-      setProviders(response.data);
-    } catch (err) {
-      console.error("Error fetching providers", err);
-      setError("Failed to load providers. Please try again later.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    setLoading(true);
+
+    const baseURL = import.meta.env.VITE_APP_URL;
+    const response = await axios.get(`${baseURL}/api/getallproviders`);
+
+    setProviders(response.data);
+  } catch (err) {
+    console.error("Error fetching providers", err);
+    setError("Failed to load providers. Please try again later.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     fetchProviders();

@@ -10,33 +10,38 @@ const Login = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    const endpoint = isProvider
-      ? 'http://localhost:8000/api/loginprovider'
-      : 'http://localhost:8000/api/loginuser';
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  setError('');
 
-    try {
-      const { data } = await axios.post(endpoint, { email, password });
-      // console.log('Login response:', data);
-      if (data && data.success) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('role', data.role);
-        if (data.role === "provider")
-          navigate('/providers');
-        else
-          navigate('/allusers');
+  // 1. Get your base URL from the Vercel environment variable
+  const baseURL = import.meta.env.VITE_APP_URL;
 
-      } else if (data) {
-        // Backend returns success: false and a Message
-        setError(data.Message || 'Login failed. Please check credentials.');
-      }
-    } catch (err) {
-      console.error(err);
-      setError(err.response?.data?.Message || err.response?.data?.message || 'Login failed. Please check credentials.');
+  // 2. Build the endpoint dynamically using the baseURL
+  const endpoint = isProvider
+    ? `${baseURL}/api/loginprovider`
+    : `${baseURL}/api/loginuser`;
+
+  try {
+    const { data } = await axios.post(endpoint, { email, password });
+    
+    if (data && data.success) {
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('role', data.role);
+      
+      if (data.role === "provider")
+        navigate('/providers');
+      else
+        navigate('/allusers');
+
+    } else if (data) {
+      setError(data.Message || 'Login failed. Please check credentials.');
     }
-  };
+  } catch (err) {
+    console.error(err);
+    setError(err.response?.data?.Message || err.response?.data?.message || 'Login failed. Please check credentials.');
+  }
+};
 
   return (
     <div className="d-flex align-items-center justify-content-center" style={{ minHeight: 'calc(100vh - 76px)', background: 'var(--bg-main)' }}>

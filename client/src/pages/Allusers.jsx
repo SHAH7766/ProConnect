@@ -25,9 +25,14 @@ const Allusers = () => {
 
   const fetchUsers = async () => {
     try {
-      const { data } = await axios.get('http://localhost:8000/api/getall', {
+      // 1. Get the base URL from your Vercel Environment Variable
+      const baseURL = import.meta.env.VITE_APP_URL;
+
+      // 2. Combine with your getall endpoint
+      const { data } = await axios.get(`${baseURL}/api/getall`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      
       setUsers(data);
     } catch (err) {
       console.error(err);

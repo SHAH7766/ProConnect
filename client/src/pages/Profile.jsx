@@ -8,15 +8,20 @@ const Profile = () => {
         fetchProfile()
     },[data])
     const fetchProfile = async () => {
-        try {
-            const { data } = await axios.get('http://localhost:8000/api/profile', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setData(data.profile)
-        } catch (err) {
-            console.error(err);
-        }
-    };
+    try {
+        // 1. Get the base URL from Vercel
+        const baseURL = import.meta.env.VITE_APP_URL;
+
+        // 2. Combine with your protected profile route
+        const { data } = await axios.get(`${baseURL}/api/profile`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+
+        setData(data.profile);
+    } catch (err) {
+        console.error("Profile fetch error:", err);
+    }
+};
     return (
         <div className='container'>
             <h1 className='text-center mt-5 text-success'>Profile</h1>
