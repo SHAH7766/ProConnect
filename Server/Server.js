@@ -8,7 +8,7 @@ dotenv.config()
 const app = express()
 app.use(express.json())
 app.use(cors(app.use(cors({
-  origin: 'https://pro-connect-v6i2.vercel.app/', // Replace with your actual Vercel URL
+  origin: 'https://pro-connect-v6i2.vercel.app', // Replace with your actual Vercel URL
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
 }));))
