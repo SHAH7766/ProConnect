@@ -1,0 +1,34 @@
+import React, { useState } from 'react'
+import axios from 'axios'
+import { useEffect } from 'react';
+const Profile = () => {
+    const [data, setData] = useState([]);
+    const token = localStorage.getItem("token")
+    useEffect(()=>{
+        fetchProfile()
+    },[data])
+    const fetchProfile = async () => {
+        try {
+            const { data } = await axios.get('http://localhost:8000/api/profile', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setData(data.profile)
+        } catch (err) {
+            console.error(err);
+        }
+    };
+    return (
+        <div className='container'>
+            <h1 className='text-center mt-5 text-success'>Profile</h1>
+            <div className='card mt-4'>
+                <div className='card-body'>
+                    <h5 className='card-title'>Name: {data.name}</h5>
+                    <p className='card-text'>Email: {data.email}</p>
+                    <p className='card-text'>Role: {data.role}</p>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+export default Profile
