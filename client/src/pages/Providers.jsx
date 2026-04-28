@@ -23,20 +23,20 @@ const Providers = () => {
   };
 
   const fetchProviders = async () => {
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
+      // Ensure VITE_APP_URL is set in your Vercel Environment Variables
+      const baseURL = import.meta.env.VITE_APP_URL;
+      const response = await axios.get(`${baseURL}/api/getallproviders`);
 
-    const baseURL = import.meta.env.VITE_APP_URL;
-    const response = await axios.get(`${baseURL}/api/getallproviders`);
-
-    setProviders(response.data);
-  } catch (err) {
-    console.error("Error fetching providers", err);
-    setError("Failed to load providers. Please try again later.");
-  } finally {
-    setLoading(false);
-  }
-};
+      setProviders(response.data);
+    } catch (err) {
+      console.error("Error fetching providers", err);
+      setError("Failed to load providers. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchProviders();
@@ -47,7 +47,7 @@ const Providers = () => {
       <Container>
         <div className="text-center mb-5 animate-up">
           <h2 className="mb-2" style={{ color: 'var(--text-main)', fontWeight: '800' }}>
-            Explore Our Expert Providers
+            Explore Our Providers
           </h2>
           <p className="text-muted">Find the right professional with the perfect experience for your needs.</p>
         </div>
