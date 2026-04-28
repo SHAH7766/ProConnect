@@ -47,7 +47,7 @@ const Providers = () => {
       <Container>
         <div className="text-center mb-5 animate-up">
           <h2 className="mb-2" style={{ color: 'var(--text-main)', fontWeight: '800' }}>
-            Explore Our Providers
+            Explore Our Expert Providers
           </h2>
           <p className="text-muted">Find the right professional with the perfect experience for your needs.</p>
         </div>
