@@ -18,7 +18,7 @@ app.use(express.json())
 
 // Fixed the nested app.use(cors) syntax error here:
 app.use(cors({
- origin: 'https://pro-connect-y1de.vercel.app',
+ origin: 'https://pro-connect-y1de-4ih7qfujl-shah7766s-projects.vercel.app/',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
 }))
