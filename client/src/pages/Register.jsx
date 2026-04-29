@@ -1,15 +1,34 @@
-import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Form, Button, Alert } from 'react-bootstrap';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import {
+  Container,
+  Row,
+  Col,
+  Form,
+  Button,
+  Toast,
+  ToastContainer
+} from 'react-bootstrap';
 import axios from 'axios';
+import { useNavigate, Link } from 'react-router-dom';
 
 const Register = () => {
-  const [formData, setFormData] = useState({ name: '', email: '', password: '', experience: '' });
-  const [isProvider, setIsProvider] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    experience: ''
+  });
 
-  // New state for validation tracking
+  const [isProvider, setIsProvider] = useState(false);
+
+  // ✅ ONLY TOAST (remove error/success states)
+  const [toast, setToast] = useState({
+    show: false,
+    message: '',
+    type: 'danger'
+  });
+
   const [passwordCriteria, setPasswordCriteria] = useState({
     length: false,
     upper: false,
@@ -19,9 +38,9 @@ const Register = () => {
 
   const navigate = useNavigate();
 
-  // Update validation status whenever password changes
   useEffect(() => {
     const { password } = formData;
+
     setPasswordCriteria({
       length: password.length >= 7,
       upper: /[A-Z]/.test(password),
@@ -36,14 +55,15 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
 
-    // Final check: Don't submit if password requirements aren't met
     const isPasswordValid = Object.values(passwordCriteria).every(Boolean);
+
     if (!isPasswordValid) {
-      setError("Please meet all password requirements.");
-      return;
+      return setToast({
+        show: true,
+        message: "Please meet all password requirements",
+        type: "danger"
+      });
     }
 
     const endpoint = isProvider
@@ -51,106 +71,148 @@ const Register = () => {
       : `http://localhost:8000/api/reguser`;
 
     try {
-      const { data } = await axios.post(endpoint, formData);
-      if (data) {
-        setSuccess('Registration successful! Redirecting to login...');
-        setTimeout(() => navigate('/login'), 2000);
-      }
+      setLoading(true); // ✅ START LOADING
+
+      await axios.post(endpoint, formData);
+
+      setToast({
+        show: true,
+        message: "Registration successful!",
+        type: "success"
+      });
+
+      setTimeout(() => navigate('/login'), 2000);
+
     } catch (err) {
-      setError(err.response?.data?.errors?.[0] || 'Something went wrong');
+      setToast({
+        show: true,
+        message: err.response?.data?.Message || "Something went wrong",
+        type: "danger"
+      });
+
+    } finally {
+      setLoading(false); // ✅ STOP LOADING
     }
   };
 
   return (
-    <div className="d-flex align-items-center justify-content-center py-5" style={{ minHeight: 'calc(100vh - 76px)', background: 'var(--bg-main)' }}>
+    <div
+      className="d-flex align-items-center justify-content-center"
+      style={{ minHeight: 'calc(100vh - 76px)' }}
+    >
       <Container>
         <Row className="justify-content-center">
           <Col md={8} lg={6}>
-            <div className="glass-card shadow-lg border-0 animate-up p-4" style={{ borderRadius: '1rem', background: '#fff' }}>
+            <div className="shadow-lg p-4 animate-up" style={{ borderRadius: '1rem', background: '#fff' }}>
+
               <div className="text-center mb-4">
                 <h3 className="fw-bold">Join ProConnect</h3>
-                <p className="text-muted">Create your account to get started</p>
               </div>
 
-              {error && <Alert variant="danger">{error}</Alert>}
-              {success && <Alert variant="success">{success}</Alert>}
-
               <Form onSubmit={handleSubmit}>
-                {/* Role Selection */}
-                <Form.Group className="mb-4 d-flex justify-content-center gap-4 p-3 rounded" style={{ background: 'rgba(79, 70, 229, 0.05)' }}>
+
+                {/* ROLE */}
+                <Form.Group className="mb-4 d-flex justify-content-center gap-4">
                   <Form.Check
-                    type="radio" label="User" name="role"
-                    checked={!isProvider} onChange={() => setIsProvider(false)}
-                    className="fw-semibold"
+                    type="radio"
+                    label="User"
+                    checked={!isProvider}
+                    onChange={() => setIsProvider(false)}
                   />
                   <Form.Check
-                    type="radio" label="Provider" name="role"
-                    checked={isProvider} onChange={() => setIsProvider(true)}
-                    className="fw-semibold"
+                    type="radio"
+                    label="Provider"
+                    checked={isProvider}
+                    onChange={() => setIsProvider(true)}
                   />
                 </Form.Group>
 
-                <Form.Group className="mb-3">
-                  <Form.Label className="fw-semibold">Full Name</Form.Label>
-                  <Form.Control type="text" name="name" value={formData.name} onChange={handleChange} placeholder="John Doe" required />
-                </Form.Group>
+                {/* NAME */}
+                <Form.Control
+                  className="mb-3"
+                  name="name"
+                  placeholder="Name"
+                  onChange={handleChange}
+                  required
+                />
 
-                <Form.Group className="mb-3">
-                  <Form.Label className="fw-semibold">Email address</Form.Label>
-                  <Form.Control type="email" name="email" value={formData.email} onChange={handleChange} placeholder="name@example.com" required />
-                </Form.Group>
+                {/* EMAIL */}
+                <Form.Control
+                  className="mb-3"
+                  name="email"
+                  type="email"
+                  placeholder="Email"
+                  onChange={handleChange}
+                  required
+                />
 
-                {/* Password Field */}
-                <Form.Group className="mb-2">
-                  <Form.Label className="fw-semibold">Password</Form.Label>
-                  <Form.Control
-                    type="password" name="password"
-                    value={formData.password} onChange={handleChange}
-                    placeholder="Create a strong password" required
-                  />
-                </Form.Group>
+                {/* PASSWORD */}
+                <Form.Control
+                  className="mb-3"
+                  name="password"
+                  type="password"
+                  placeholder="Password"
+                  onChange={handleChange}
+                  required
+                />
 
-                {/* Attractable Error/Validation Checklist */}
-                <div className="mb-4 p-2 rounded" style={{ background: '#f8f9fa' }}>
-                  <div className="row g-2">
-                    {[
-                      { key: 'length', text: '7+ Characters' },
-                      { key: 'upper', text: 'Uppercase Letter' },
-                      { key: 'number', text: 'One Number' },
-                      { key: 'special', text: 'Special Char (@$!%*?&)' },
-                    ].map((item) => (
-                      <div key={item.key} className="col-6">
-                        <small className={`d-flex align-items-center transition-all ${passwordCriteria[item.key] ? 'text-success fw-bold' : 'text-muted'}`}>
-                          <span className="me-1">{passwordCriteria[item.key] ? '✓' : '○'}</span>
-                          {item.text}
-                        </small>
-                      </div>
-                    ))}
-                  </div>
+                {/* PASSWORD RULES */}
+                <div className="mb-3">
+                  {Object.entries(passwordCriteria).map(([key, val]) => (
+                    <small key={key} className={val ? "text-success d-block" : "text-muted d-block"}>
+                      {val ? "✓" : "○"} {key}
+                    </small>
+                  ))}
                 </div>
 
+                {/* PROVIDER */}
                 {isProvider && (
-                  <Form.Group className="mb-4 animate-up">
-                    <Form.Label className="fw-semibold">Experience</Form.Label>
-                    <Form.Control type="text" name="experience" value={formData.experience} onChange={handleChange} placeholder="e.g. 5 Years in Plumbing" required={isProvider} />
-                  </Form.Group>
+                  <Form.Control
+                    className="mb-3"
+                    name="experience"
+                    placeholder="Experience"
+                    onChange={handleChange}
+                    required
+                  />
                 )}
 
-                <Button variant="primary" type="submit" className="btn-primary-custom w-100 py-3 mt-2 mb-3">
-                  Create Account
+                <Button type="submit" className="w-100" disabled={loading}>
+                  {loading ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2"></span>
+                      Creating Account...
+                    </>
+                  ) : (
+                    "Register"
+                  )}
                 </Button>
 
                 <div className="text-center mt-3">
-                  <span className="text-muted">Already have an account? </span>
-                  <Link to="/login" className="text-primary fw-semibold text-decoration-none">Sign In</Link>
+                  <Link to="/login">Already have an account?</Link>
                 </div>
+
               </Form>
             </div>
           </Col>
         </Row>
+
+        {/* ✅ TOAST */}
+        <ToastContainer position="bottom-end" className="p-3">
+          <Toast
+            bg={toast.type}
+            show={toast.show}
+            onClose={() => setToast({ ...toast, show: false })}
+            delay={3000}
+            autohide
+          >
+            <Toast.Body className="text-white">
+              {toast.message}
+            </Toast.Body>
+          </Toast>
+        </ToastContainer>
+
       </Container>
     </div>
   );
 };
-
 export default Register;

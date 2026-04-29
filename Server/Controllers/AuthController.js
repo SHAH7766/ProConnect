@@ -16,7 +16,7 @@ export const RegisterUser = async (req, res) => {
         else
             role = "admin"
         if (existUser)
-            return res.send({ Message: "User already exists", success: false })
+            return res.status(409).send({ Message: "User already exists", success: false })
         let hashPassword = await HashPassword(password)
         let newuser = await user.create({ name, email, password: hashPassword, role: role, experience })
         newuser = await newuser.save()
