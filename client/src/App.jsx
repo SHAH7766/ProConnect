@@ -1,5 +1,5 @@
-import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 import Navigation from './components/Navigation';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -9,7 +9,31 @@ import Allusers from './pages/Allusers';
 import Profile from './pages/Profile';
 import Detail from './pages/Detail';
 import Complain from './pages/Complain';
+import AllComplains from './pages/AllComplains';
+import { getTokenExpiration } from './Auth/LogoutHandler.js';
 function App() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    const expiryTime = getTokenExpiration(token);
+    const currentTime = Date.now();
+    if (expiryTime <= currentTime) {
+      logout();
+      return;
+    }
+    const timeout = setTimeout(() => {
+      logout();
+    }, expiryTime - currentTime);
+
+    return () => clearTimeout(timeout);
+  }, []);
+
+  const logout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
+    navigate("/");
+  };
   return (
     <>
       <Navigation />
@@ -22,7 +46,8 @@ function App() {
           <Route path="/allusers" element={<Allusers />} />
           <Route path='/profile' element={<Profile />} />
           <Route path='/detail' element={<Detail />} />
-          <Route path='/complain' element={<Complain />} /> {/* New route for Complain page */}
+          <Route path='/complain' element={<Complain />} />
+          <Route path='/allcomplaints' element={<AllComplains />} />
         </Routes>
       </div>
     </>

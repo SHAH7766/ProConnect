@@ -40,8 +40,9 @@ const Navigation = () => {
           <Nav className="gap-3 mt-3 mt-lg-0">
             {isLoggedIn ? (
               <>
-                <Button onClick={handleLogout} className="btn-outline-custom">Logout</Button>
                 <Nav.Link as={Link} to="/profile">Profile</Nav.Link>
+                <Nav.Link as={Link} to="/allcomplaints">All Complaints</Nav.Link>
+                <Button onClick={handleLogout} className="btn-outline-custom">Logout</Button>
               </>
 
             ) : (
