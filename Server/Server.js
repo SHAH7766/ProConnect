@@ -4,29 +4,14 @@ import dotenv from 'dotenv'
 import router from "./Routes/routes.js"
 import { Dbconnection } from "./Config/Database.js"
 import cors from 'cors'
-
-// 1. Config dotenv first
-dotenv.config()
-
-// 2. Connect to Database
-Dbconnection()
-
+import ComplaintsRouter from './Routes/ComplaintsRoutes.js'
 const app = express()
-
-// 3. Middlewares
+dotenv.config()
+Dbconnection()
 app.use(express.json())
-
-// Fixed the nested app.use(cors) syntax error here:
-app.use(cors({
- origin: 'https://pro-connect-r36c.vercel.app',
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  credentials: true
-}))
-
-// 4. Routes
+app.use(cors())
 app.use("/api", router)
-
-// 5. Listen
+app.use('/api', ComplaintsRouter) // New route for complaints management
 const PORT = process.env.PORT || 8080 // Default to 8080 if PORT is missing in .env
 app.listen(PORT, () => {
     console.log(`Server is running at port ${PORT}`.bgBrightBlue)

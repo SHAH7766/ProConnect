@@ -26,13 +26,13 @@ const Allusers = () => {
   const fetchUsers = async () => {
     try {
       // 1. Get the base URL from your Vercel Environment Variable
-      const baseURL = import.meta.env.VITE_APP_URL;
+      // const baseURL = import.meta.env.VITE_APP_URL;
 
       // 2. Combine with your getall endpoint
-      const { data } = await axios.get(`${baseURL}/api/getall`, {
+      const { data } = await axios.get(`http://localhost:8000/api/getall`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
+
       setUsers(data);
     } catch (err) {
       console.error(err);
@@ -48,7 +48,7 @@ const Allusers = () => {
         const { data } = await axios.delete(`http://localhost:8000/api/delete/${id}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        
+
         if (data.success) {
           setUsers(users.filter(u => u._id !== id));
           setToast({ show: true, message: data.Message || 'Record deleted successfully.', type: 'success' });
@@ -106,19 +106,19 @@ const Allusers = () => {
                     </Badge>
                   </td>
                   <td className="py-3">
-                    <Button 
-                      variant="outline-primary" 
-                      size="sm" 
+                    <Button
+                      variant="outline-primary"
+                      size="sm"
                       className="me-2 rounded-circle"
                       onClick={() => handleEdit(user._id)}
                     >
                       <FiEdit />
                     </Button>
-                    
+
                     {user.role !== 'admin' && (
-                      <Button 
-                        variant="outline-danger" 
-                        size="sm" 
+                      <Button
+                        variant="outline-danger"
+                        size="sm"
                         className="rounded-circle"
                         onClick={() => handleDelete(user._id, user.role)}
                       >
@@ -138,11 +138,11 @@ const Allusers = () => {
       </div>
 
       <ToastContainer position="bottom-end" className="p-3" style={{ position: 'fixed', zIndex: 1050 }}>
-        <Toast 
-          bg={toast.type} 
-          onClose={() => setToast({ ...toast, show: false })} 
-          show={toast.show} 
-          delay={4000} 
+        <Toast
+          bg={toast.type}
+          onClose={() => setToast({ ...toast, show: false })}
+          show={toast.show}
+          delay={4000}
           autohide
         >
           <Toast.Header closeButton className={`text-${toast.type} fw-bold`}>

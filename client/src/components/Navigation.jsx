@@ -27,8 +27,8 @@ const Navigation = () => {
           <Nav className="mx-auto">
             {userRole !== 'admin' && (
               <>
-                <Nav.Link as={Link} to="/">Home</Nav.Link>
-                <Nav.Link as={Link} to="/providers">Find Providers</Nav.Link>
+                
+                {/* <Nav.Link as={Link} to="/providers">Find Providers</Nav.Link> */}
               </>
             )}
             {isLoggedIn && userRole === 'admin' && (

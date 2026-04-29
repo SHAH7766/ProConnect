@@ -19,8 +19,8 @@ const Login = () => {
 
   // 2. Build the endpoint dynamically using the baseURL
   const endpoint = isProvider
-    ? `${baseURL}/api/loginprovider`
-    : `${baseURL}/api/loginuser`;
+    ? `http://localhost:8000/api/loginprovider`
+    : `http://localhost:8000/api/loginuser`;
 
   try {
     const { data } = await axios.post(endpoint, { email, password });

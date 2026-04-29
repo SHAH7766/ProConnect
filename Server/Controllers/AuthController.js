@@ -3,6 +3,7 @@ import provider from "../Model/Provider.js"
 import { HashPassword, ComparePassword } from "../Auth/Hash.js"
 import { EmailClient } from "../utils/Nodemailer.js"
 import { LoginEmail } from "../utils/LoginEmail.js"
+import Complaint from "../Model/Complaint.js"
 import jwt from 'jsonwebtoken'
 export const RegisterUser = async (req, res) => {
     let role = ""

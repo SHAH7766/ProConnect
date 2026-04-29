@@ -1,15 +1,20 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Container, Row, Col, Button } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
-import { FiArrowRight, FiCheckCircle, FiShield, FiStar } from 'react-icons/fi';
+import { FiArrowRight, FiCheckCircle, FiShield, FiStar, FiAlertCircle } from 'react-icons/fi';
+
 
 const Home = () => {
+  const role = localStorage.getItem('role')
+  console.log(role)
+  const [showComplain, setShowComplain] = useState(false);
+
   return (
     <>
-      {/* Hero Section */}
       <section className="hero-section">
         <Container>
           <Row className="align-items-center">
+            {/* Left Content */}
             <Col lg={6} className="mb-5 mb-lg-0">
               <div className="pe-lg-5">
                 <div className="badge bg-primary bg-opacity-10 text-primary mb-3 px-3 py-2 rounded-pill animate-up">
@@ -31,6 +36,8 @@ const Home = () => {
                 </div>
               </div>
             </Col>
+
+            {/* Right Content (Glass Card) */}
             <Col lg={6}>
               <div className="glass-card animate-up delay-2">
                 <div className="d-flex align-items-center gap-4 mb-4">
@@ -63,6 +70,26 @@ const Home = () => {
               </div>
             </Col>
           </Row>
+
+          {/* Centered Complaint Button Section */}
+          {role === 'user' ? <>
+          <Row className="mt-5 pt-5 animate-up delay-3">
+            <Col className="text-center">
+              <div className="d-inline-block p-4 rounded-4" style={{ background: 'rgba(255, 255, 255, 0.5)', border: '1px solid rgba(0,0,0,0.05)' }}>
+                <p className="text-muted mb-3 small fw-medium text-uppercase tracking-wider">Need assistance with a provider?</p>
+                <Link to='/complain' className='text-decoration-none'>
+                  <Button
+                    variant="outline-danger"
+                    className="rounded-pill px-4 py-2 d-flex align-items-center gap-2 mx-auto"
+
+                  >
+                    <FiAlertCircle /> Report a Problem
+                  </Button>
+                </Link>
+              </div>
+            </Col>
+          </Row>
+          </> : <></>}
         </Container>
       </section>
     </>
