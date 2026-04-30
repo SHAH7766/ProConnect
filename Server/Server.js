@@ -10,7 +10,7 @@ dotenv.config()
 Dbconnection()
 app.use(express.json())
 const corsOptions = {
-    origin: 'https://pro-connect-v6i2.vercel.app/', // Your frontend URL
+    origin: 'https://pro-connect-v6i2.vercel.app', // Your frontend URL
     methods: ['GET', 'POST', 'PUT', 'DELETE'],    // Allowed methods
     credentials: true,                             // Allow cookies if needed
     optionsSuccessStatus: 200                      // Some legacy browsers choke on 204
