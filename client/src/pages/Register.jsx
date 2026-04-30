@@ -20,6 +20,8 @@ const Register = () => {
     experience: ''
   });
 
+  const baseURL = import.meta.env.VITE_APP_URL;
+
   const [isProvider, setIsProvider] = useState(false);
 
   // ✅ ONLY TOAST (remove error/success states)
@@ -67,8 +69,8 @@ const Register = () => {
     }
 
     const endpoint = isProvider
-      ? `http://localhost:8000/api/regprovider`
-      : `http://localhost:8000/api/reguser`;
+      ? `${baseURL}/api/regprovider`
+      : `${baseURL}/api/reguser`;
 
     try {
       setLoading(true); // ✅ START LOADING

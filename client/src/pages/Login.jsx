@@ -41,9 +41,10 @@ const Login = () => {
     return setToast({ show: true, message: "Password is required", type: "danger" });
   }
 
+  const baseURL = import.meta.env.VITE_APP_URL;
   const endpoint = isProvider
-    ? `http://localhost:8000/api/loginprovider`
-    : `http://localhost:8000/api/loginuser`;
+    ? `${baseURL}/api/loginprovider`
+    : `${baseURL}/api/loginuser`;
 
   try {
     setLoading(true); // ✅ START LOADING

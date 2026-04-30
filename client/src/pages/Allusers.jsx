@@ -13,7 +13,7 @@ const Allusers = () => {
 
   const userRole = localStorage.getItem('role');
   const token = localStorage.getItem('token');
-
+const baseURL = import.meta.env.VITE_APP_URL;
   useEffect(() => {
     // Redirect if not admin
     if (userRole !== 'admin') {
@@ -29,7 +29,7 @@ const Allusers = () => {
       // const baseURL = import.meta.env.VITE_APP_URL;
 
       // 2. Combine with your getall endpoint
-      const { data } = await axios.get(`http://localhost:8000/api/getall`, {
+      const { data } = await axios.get(`${baseURL}/api/getall`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 

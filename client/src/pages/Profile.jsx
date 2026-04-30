@@ -13,7 +13,7 @@ const Profile = () => {
         const baseURL = import.meta.env.VITE_APP_URL;
 
         // 2. Combine with your protected profile route
-        const { data } = await axios.get(`http://localhost:8000/api/profile`, {
+        const { data } = await axios.get(`${baseURL}/api/profile`, {
             headers: { Authorization: `Bearer ${token}` }
         });
 

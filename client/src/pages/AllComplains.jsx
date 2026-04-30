@@ -9,7 +9,7 @@ const AllComplains = () => {
 
   const [complaints, setComplaints] = useState([]);
   const [error, setError] = useState('');
-
+  const baseURL = import.meta.env.VITE_APP_URL;
   const [toast, setToast] = useState({
     show: false,
     message: '',
@@ -24,7 +24,7 @@ const AllComplains = () => {
   const fetchComplaints = async () => {
     try {
       const result = await axios.get(
-        'http://localhost:8000/api/allcomplaints',
+        `${baseURL}/api/allcomplaints`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -51,7 +51,7 @@ const AllComplains = () => {
   const handleStatusChange = async (id, newStatus) => {
     try {
       await axios.put(
-        `http://localhost:8000/api/updatecomplaintstatus/${id}`,
+        `${baseURL}/api/updatecomplaintstatus/${id}`,
         { status: newStatus },
         {
           headers: { Authorization: `Bearer ${token}` }
