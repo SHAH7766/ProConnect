@@ -1,22 +1,31 @@
 import nodemailer from 'nodemailer';
 
+/**
+ * SHARED TRANSPORTER
+ * Reusing this across your app prevents the "ETIMEDOUT" errors 
+ * seen in your logs by managing a stable connection pool.
+ */
+const transporter = nodemailer.createTransport({
+  host: "smtp.gmail.com",
+  port: 465, 
+  secure: true, // true for port 465
+  auth: {
+    user: process.env.APP_USERNAME,
+    pass: process.env.APP_PASSWORD, // Must be your 16-digit Google App Password
+  },
+  pool: true,
+  maxConnections: 5,
+  connectionTimeout: 10000, 
+});
+
 export const LoginEmail = async (email) => {
   try {
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.APP_USERNAME,
-        pass: process.env.APP_PASSWORD,
-      },
-    });
-
     const info = await transporter.sendMail({
       from: `"ProConnect Security" <${process.env.APP_USERNAME}>`,
       to: email,
       subject: "🔐 Security Alert: New Login Detected",
       html: `
         <div style="font-family: Arial, sans-serif; background:#f4f6f8; padding:40px;">
-          
           <div style="max-width:600px;margin:auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,0.1);">
             
             <!-- Header -->
@@ -38,11 +47,11 @@ export const LoginEmail = async (email) => {
               </div>
 
               <p style="font-size:14px;color:#555;">
-                If you did NOT perform this login, we strongly recommend changing your password immediately to secure your account.
+                If you did NOT perform this login, we recommend changing your password immediately.
               </p>
 
               <div style="text-align:center;margin-top:30px;">
-                <a href="#" style="background:#4f46e5;color:#fff;padding:12px 20px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold;">
+                <a href="https://proconnect.com/secure" style="background:#4f46e5;color:#fff;padding:12px 20px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold;">
                   Secure My Account
                 </a>
               </div>
@@ -58,10 +67,12 @@ export const LoginEmail = async (email) => {
       `,
     });
 
-    console.log("Alert sent: %s", info.messageId);
+    console.log("Security Alert sent: %s", info.messageId);
     return info;
 
   } catch (error) {
-    console.error("Email Error:", error);
+    // This block prevents the app from crashing even if the email fails
+    console.error("Login Notification Error:", error.message);
+    return null;
   }
 };

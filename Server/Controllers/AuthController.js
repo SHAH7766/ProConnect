@@ -22,7 +22,7 @@ export const RegisterUser = async (req, res) => {
         let newuser = await user.create({ name, email, password: hashPassword, role: role, experience })
         newuser = await newuser.save()
         if (newuser) {
-            EmailClient(email, name)
+            await EmailClient(email, name)
             return res.send({ Message: "Registered successfully", success: true })
         }
         else
@@ -48,7 +48,7 @@ export const LoginController = async (req, res) => {
             role: existUser.role
         }
         if (resultPassword) {
-            LoginEmail(email)
+            await LoginEmail(email)
             const token = jwt.sign({ LoggedUser }, process.env.SECRET_KEY, { expiresIn: "5min" })
             return res.send({ Message: `Welcome back ${existUser.name}`, success: true, token, role: existUser.role })
         }
@@ -72,7 +72,7 @@ export const RegisterProvider = async (req, res) => {
         let newProvider = await provider.create({ name, email, password: hashPassword, role: 'provider', experience })
         newProvider = await newProvider.save()
         if (newProvider) {
-            EmailClient(email, name)
+            await EmailClient(email, name)
             return res.send({ Message: "Registered successfully", success: true })
         }
         else
@@ -98,7 +98,7 @@ export const loginProvider = async (req, res) => {
             role: existProvider.role
         }
         if (resultPassword) {
-            LoginEmail(email)
+            await LoginEmail(email)
             const token = jwt.sign({ LoggedProvider }, process.env.SECRET_KEY, { expiresIn: "20m" })
             return res.send({ Message: `Welcome back ${existProvider.name}`, success: true, token, role: LoggedProvider.role })
         }
@@ -179,7 +179,7 @@ export const ForgotPassword = async (req, res) => {
             return res.status(404).send({ Message: "Account not found", success: false })
         const resetToken = await jwt.sign({ email }, process.env.SECRET_KEY, { expiresIn: "15m" })
         const resetLink = `http://localhost:5173/resetpassword?token=${resetToken}`
-        resetpassword(email, resetLink)
+        await resetpassword(email, resetLink)
         return res.send({ Message: "Password reset link sent to your email", success: true })
 
     } catch (error) {

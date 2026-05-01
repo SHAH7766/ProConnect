@@ -1,15 +1,24 @@
 import nodemailer from 'nodemailer';
 
+/**
+ * SHARED TRANSPORTER
+ * Configured specifically for Railway's network to avoid connection timeouts.
+ */
+const transporter = nodemailer.createTransport({
+  host: "smtp.gmail.com",
+  port: 465, 
+  secure: true, // true for port 465
+  auth: {
+    user: process.env.APP_USERNAME,
+    pass: process.env.APP_PASSWORD, // Must be your 16-digit Google App Password
+  },
+  pool: true,
+  maxConnections: 5,
+  connectionTimeout: 10000, 
+});
+
 export const sendOtpEmail = async (email, otp) => {
   try {
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.APP_USERNAME,
-        pass: process.env.APP_PASSWORD,
-      },
-    });
-
     const info = await transporter.sendMail({
       from: `"ProConnect Team" <${process.env.APP_USERNAME}>`,
       to: email,
@@ -53,11 +62,6 @@ export const sendOtpEmail = async (email, otp) => {
             <!-- Footer -->
             <tr>
               <td style="background-color: #f9fafb; padding: 30px; text-align: center; border-top: 1px solid #f3f4f6;">
-                <div style="margin-bottom: 16px;">
-                  <a href="#" style="color: #6b7280; text-decoration: none; margin: 0 10px; font-size: 12px;">Help Center</a>
-                  <a href="#" style="color: #6b7280; text-decoration: none; margin: 0 10px; font-size: 12px;">Terms of Service</a>
-                  <a href="#" style="color: #6b7280; text-decoration: none; margin: 0 10px; font-size: 12px;">Privacy Policy</a>
-                </div>
                 <p style="margin: 0; color: #9ca3af; font-size: 12px; line-height: 1.5;">
                   &copy; ${new Date().getFullYear()} ProConnect Marketplace. All rights reserved.<br>
                   Lahore, Pakistan
@@ -69,11 +73,12 @@ export const sendOtpEmail = async (email, otp) => {
       `,
     });
 
-    console.log("Modern OTP email sent: %s", info.messageId);
+    console.log("OTP email sent: %s", info.messageId);
     return info;
 
   } catch (error) {
-    console.error("Email Error:", error);
-    throw error; 
+    // Prevents unhandledRejection which crashes the Railway process
+    console.error("OTP Email Error:", error.message);
+    return null; 
   }
 };

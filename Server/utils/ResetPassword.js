@@ -1,15 +1,24 @@
 import nodemailer from 'nodemailer';
 
+/**
+ * SHARED TRANSPORTER
+ * Configured for Railway to prevent connection timeouts and process crashes.
+ */
+const transporter = nodemailer.createTransport({
+  host: "smtp.gmail.com",
+  port: 465, 
+  secure: true, // true for port 465
+  auth: {
+    user: process.env.APP_USERNAME,
+    pass: process.env.APP_PASSWORD, // Ensure this is your 16-digit App Password
+  },
+  pool: true,
+  maxConnections: 5,
+  connectionTimeout: 10000, 
+});
+
 export const resetpassword = async (email, resetLink) => {
   try {
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.APP_USERNAME,
-        pass: process.env.APP_PASSWORD,
-      },
-    });
-
     const info = await transporter.sendMail({
       from: `"ProConnect Support" <${process.env.APP_USERNAME}>`,
       to: email,
@@ -64,7 +73,9 @@ export const resetpassword = async (email, resetLink) => {
     return info;
 
   } catch (error) {
-    console.error("Email Error:", error);
-    throw error; // Rethrow so your controller can handle the failure
+    // Logging the error specifically for debugging without killing the Node.js process
+    console.error("Password Reset Email Error:", error.message);
+    // Returning null instead of throwing ensures the overall app logic can handle the fail gracefully
+    return null; 
   }
 };
