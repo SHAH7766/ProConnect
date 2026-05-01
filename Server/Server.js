@@ -9,13 +9,13 @@ const app = express()
 dotenv.config()
 Dbconnection()
 app.use(express.json())
-app.use(cors(corsOptions))
 const corsOptions = {
     origin: 'https://pro-connect-v6i2.vercel.app', // Your frontend URL
     methods: ['GET', 'POST', 'PUT', 'DELETE'],    // Allowed methods
     credentials: true,                             // Allow cookies if needed
     optionsSuccessStatus: 200                      // Some legacy browsers choke on 204
 };
+app.use(cors(corsOptions))
 app.use("/api", router)
 app.use('/api', ComplaintsRouter) // New route for complaints management
 const PORT = process.env.PORT || 8080 // Default to 8080 if PORT is missing in .env
