@@ -15,7 +15,6 @@ app.use(cors({
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.options('*', cors(corsOptions));
 app.use("/api", router)
 app.use('/api', ComplaintsRouter) // New route for complaints management
 const PORT = process.env.PORT || 8080 // Default to 8080 if PORT is missing in .env
