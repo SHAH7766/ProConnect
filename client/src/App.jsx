@@ -13,7 +13,7 @@ import AllComplains from './pages/AllComplains';
 import { getTokenExpiration } from './Auth/LogoutHandler.js';
 import ForgotPasswordForm from './pages/ForgotPasswordForm.jsx';
 import ResetPassword from './pages/ResetPassword.jsx';
-// import Otp from './pages/Otp.jsx';
+
 function App() {
   const navigate = useNavigate();
   useEffect(() => {
@@ -52,7 +52,7 @@ function App() {
           <Route path='/complain' element={<Complain />} />
           <Route path='/allcomplaints' element={<AllComplains />} />
           <Route path='/forgotpassword' element={<ForgotPasswordForm />} />
-          <Route path='/resetpassword' element={<ResetPassword />} />
+          <Route path='/resetpassword/:token' element={<ResetPassword />} />
           
         </Routes>
       </div>
