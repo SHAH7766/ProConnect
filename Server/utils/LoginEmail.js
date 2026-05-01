@@ -7,8 +7,8 @@ import nodemailer from 'nodemailer';
  */
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
-  port: 465, 
-  secure: true, // true for port 465
+  port: 587, 
+  secure: false, // true for port 465
   auth: {
     user: process.env.APP_USERNAME,
     pass: process.env.APP_PASSWORD, // Must be your 16-digit Google App Password
