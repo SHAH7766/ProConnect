@@ -9,13 +9,12 @@ const app = express()
 dotenv.config()
 Dbconnection()
 app.use(express.json())
-const corsOptions = {
-  origin: 'https://pro-connect-v6i2.vercel.app', // exact match (no slash at end)
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  credentials: true
-};
-
-app.use(cors(corsOptions));
+app.use(cors({
+    origin: 'https://pro-connect-v6i2.vercel.app',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.options('*', cors(corsOptions));
 app.use("/api", router)
 app.use('/api', ComplaintsRouter) // New route for complaints management
