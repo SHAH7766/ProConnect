@@ -1,23 +1,6 @@
 import nodemailer from 'nodemailer';
 
-/**
- * PRODUCTION CONFIGURATION
- * Using explicit host/port settings is more reliable on Railway than 'service: gmail'
- */
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465, 
-  secure: true, // Use true for 465, false for 587
-  auth: {
-    user: process.env.APP_USERNAME,
-    pass: process.env.APP_PASSWORD, // Must be a 16-digit App Password
-  },
-  pool: true, // Keeps the connection open for multiple emails
-  maxConnections: 5,
-  connectionTimeout: 10000, // 10 seconds
-});
-
-// 1. Welcome Email for New Clients
+const resend = new Resend(process.env.RESEND_API_KEY);
 export const EmailClient = async (email, name) => {
   try {
     const info = await transporter.sendMail({
@@ -49,38 +32,5 @@ export const EmailClient = async (email, name) => {
   } catch (error) {
     console.error("Welcome Email Error:", error.message);
     return null; // Prevents app crash
-  }
-};
-
-// 2. Security Alert for Logins
-export const LoginEmail = async (email) => {
-  try {
-    const info = await transporter.sendMail({
-      from: `"ProConnect Security" <${process.env.APP_USERNAME}>`,
-      to: email,
-      subject: "🔐 Security Alert: New Login Detected",
-      html: `
-        <div style="font-family: Arial, sans-serif; background:#f4f6f8; padding:40px;">
-          <div style="max-width:600px;margin:auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,0.1);">
-            <div style="background:#4f46e5;padding:20px;text-align:center;color:white;">
-              <h2 style="margin:0;">Security Alert</h2>
-            </div>
-            <div style="padding:30px;color:#333;">
-              <h3>New Login Detected 🔐</h3>
-              <p>We noticed a new login to your ProConnect account at ${new Date().toLocaleString()}.</p>
-              <p>If this was not you, please secure your account immediately.</p>
-            </div>
-            <div style="background:#f3f4f6;text-align:center;padding:15px;font-size:12px;color:#777;">
-              © ${new Date().getFullYear()} ProConnect
-            </div>
-          </div>
-        </div>
-      `,
-    });
-    console.log("Security alert sent:", info.messageId);
-    return info;
-  } catch (error) {
-    console.error("Security Email Error:", error.message);
-    return null;
   }
 };

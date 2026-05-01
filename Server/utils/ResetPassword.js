@@ -1,21 +1,6 @@
 import nodemailer from 'nodemailer';
 
-/**
- * SHARED TRANSPORTER
- * Configured for Railway to prevent connection timeouts and process crashes.
- */
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465, 
-  secure: true, // true for port 465
-  auth: {
-    user: process.env.APP_USERNAME,
-    pass: process.env.APP_PASSWORD, // Ensure this is your 16-digit App Password
-  },
-  pool: true,
-  maxConnections: 5,
-  connectionTimeout: 10000, 
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export const resetpassword = async (email, resetLink) => {
   try {

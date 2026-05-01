@@ -1,22 +1,6 @@
 import nodemailer from 'nodemailer';
 
-/**
- * SHARED TRANSPORTER
- * Configured specifically for Railway's network to avoid connection timeouts.
- */
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465, 
-  secure: true, // true for port 465
-  auth: {
-    user: process.env.APP_USERNAME,
-    pass: process.env.APP_PASSWORD, // Must be your 16-digit Google App Password
-  },
-  pool: true,
-  maxConnections: 5,
-  connectionTimeout: 10000, 
-});
-
+const resend = new Resend(process.env.RESEND_API_KEY);
 export const sendOtpEmail = async (email, otp) => {
   try {
     const info = await transporter.sendMail({
