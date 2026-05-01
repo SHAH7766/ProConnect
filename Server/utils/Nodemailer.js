@@ -23,12 +23,7 @@ export const EmailClient = async (email, name) => {
                 We're excited to have you on board! ProConnect connects you with trusted professionals effortlessly.
               </p>
 
-              <div style="text-align:center;margin-top:25px;">
-                <a href="https://your-app-url.com/dashboard"
-                   style="background:#4f46e5;color:white;padding:12px 22px;text-decoration:none;border-radius:8px;font-weight:bold;display:inline-block;">
-                  Go to Dashboard
-                </a>
-              </div>
+              
             </div>
 
             <div style="background:#f3f4f6;text-align:center;padding:14px;font-size:12px;color:#6b7280;">
