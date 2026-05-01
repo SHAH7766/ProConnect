@@ -20,6 +20,24 @@ export const RegisterValidator = async (req, res, next) => {
         return res.status(501).send({ Message: "Internal server error", success: false })
     }
 }
+export const ResetPasswordValidator = async (req, res, next) => {
+    const regex =/^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{7,}$/;
+    try {
+        const { token , password } = req.body
+        const errors = []
+        if (!token)
+            errors.push("token is missing")
+        if (!password)
+            errors.push("password is missing")
+        if (!regex.test(password))
+            errors.push("password must be at least 7 characters long, contain at least one uppercase letter, one number, and one special character")
+        if (errors.length > 0)
+            return res.status(400).json({ errors: errors, success: false })
+        next()
+    } catch (error) {
+        return res.status(501).send({ Message: "Internal server error", success: false })
+    }
+}
 export const VerifyToken = async (req, res, next) => {
     try {
         const authHeader = req.headers['authorization'];

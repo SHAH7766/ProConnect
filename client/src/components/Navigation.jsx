@@ -41,7 +41,7 @@ const Navigation = () => {
             {isLoggedIn ? (
               <>
                 <Nav.Link as={Link} to="/profile">Profile</Nav.Link>
-                <Nav.Link as={Link} to="/allcomplaints">All Complaints</Nav.Link>
+                <Nav.Link as={Link} to="/allcomplaints"> Complaints</Nav.Link>
                 <Button onClick={handleLogout} className="btn-outline-custom">Logout</Button>
               </>
 

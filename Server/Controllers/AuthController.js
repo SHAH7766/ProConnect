@@ -5,6 +5,7 @@ import { EmailClient } from "../utils/Nodemailer.js"
 import { LoginEmail } from "../utils/LoginEmail.js"
 import Complaint from "../Model/Complaint.js"
 import jwt from 'jsonwebtoken'
+import { resetpassword } from "../utils/ResetPassword.js"
 export const RegisterUser = async (req, res) => {
     let role = ""
     try {
@@ -167,3 +168,57 @@ export const GetAllProviders = async (req, res) => {
         return res.status(500).send({ Message: "Internal server error", success: false })
     }
 }
+export const ForgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body
+        const existUser = await user.findOne({ email })
+        const existProvider = await provider.findOne({ email })
+        if (!existUser)
+            return res.status(404).send({ Message: "Account not found", success: false })
+        if (!existProvider)
+            return res.status(404).send({ Message: "Account not found", success: false })
+        const resetToken = await jwt.sign({ email }, process.env.SECRET_KEY, { expiresIn: "15m" })
+        const resetLink = `http://localhost:5173/resetpassword?token=${resetToken}`
+        resetpassword(email, resetLink)
+        return res.send({ Message: "Password reset link sent to your email", success: true })
+
+    } catch (error) {
+        console.log(error)
+        return res.status(500).send({ Message: "Internal server error", success: false })
+    }
+}
+export const ResetPassword = async (req, res) => {
+    try {
+        const { token, password } = req.body;
+
+        // Log the body to see exactly what is arriving from the frontend
+        console.log("Request Body:", req.body);
+
+        if (!token || !password) {
+            return res.status(400).json({ success: false, Message: "Missing token or password" });
+        }
+
+        // Verify the token
+        const decoded = jwt.verify(token, process.env.SECRET_KEY);
+        const email = decoded.email;
+        const hashedPassword = await HashPassword(password);
+
+        // Update the password in both collections for your ProConnect app
+        const updatedUser = await user.findOneAndUpdate({ email }, { password: hashedPassword });
+        const updatedProvider = await provider.findOneAndUpdate({ email }, { password: hashedPassword });
+
+        if (!updatedUser && !updatedProvider) {
+            return res.status(404).json({ success: false, Message: "Account not found" });
+        }
+
+        return res.status(200).json({ success: true, Message: "Password updated successfully!" });
+
+    } catch (error) {
+        console.error("ResetPassword Error:", error); // Check your terminal for this!
+        
+        if (error.name === "TokenExpiredError") {
+            return res.status(401).json({ success: false, Message: "Link expired" });
+        }
+        return res.status(500).json({ success: false, Message: "Internal server error" });
+    }
+};

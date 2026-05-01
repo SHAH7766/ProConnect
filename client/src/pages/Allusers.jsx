@@ -29,7 +29,7 @@ const baseURL = import.meta.env.VITE_APP_URL;
       // const baseURL = import.meta.env.VITE_APP_URL;
 
       // 2. Combine with your getall endpoint
-      const { data } = await axios.get(`${baseURL}/api/getall`, {
+      const { data } = await axios.get(`http://localhost:8000/api/getall`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 

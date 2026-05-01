@@ -43,8 +43,8 @@ const Login = () => {
 
   const baseURL = import.meta.env.VITE_APP_URL;
   const endpoint = isProvider
-    ? `${baseURL}/api/loginprovider`
-    : `${baseURL}/api/loginuser`;
+    ? `http://localhost:8000/api/loginprovider`
+    : `http://localhost:8000/api/loginuser`;
 
   try {
     setLoading(true); // ✅ START LOADING
@@ -136,6 +136,7 @@ const Login = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
+                <Link to="/forgotpassword" className="mb-3 d-block text-end">Forgot password?</Link>
 
                 <Button type="submit" className="w-100 py-2" disabled={loading}>
                   {loading ? (
