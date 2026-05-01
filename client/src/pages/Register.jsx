@@ -69,8 +69,8 @@ const Register = () => {
     }
 
     const endpoint = isProvider
-      ? `http://localhost:8000/api/regprovider`
-      : `http://localhost:8000/api/reguser`;
+      ? `${baseURL}/api/regprovider`
+      : `${baseURL}/api/reguser`;
 
     try {
       setLoading(true); // ✅ START LOADING

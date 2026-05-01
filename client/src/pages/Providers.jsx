@@ -26,7 +26,7 @@ const Providers = () => {
       setLoading(true);
       // Ensure VITE_APP_URL is set in your Vercel Environment Variables
       const baseURL = import.meta.env.VITE_APP_URL;
-      const response = await axios.get(`http://localhost:8000/api/getallproviders`);
+      const response = await axios.get(`${baseURL}/api/getallproviders`);
 
       setProviders(response.data);
     } catch (err) {

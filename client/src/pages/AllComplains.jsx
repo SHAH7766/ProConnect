@@ -24,7 +24,7 @@ const AllComplains = () => {
   const fetchComplaints = async () => {
     try {
       const result = await axios.get(
-        `http://localhost:8000/api/allcomplaints`,
+        `${baseURL}/api/allcomplaints`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -50,7 +50,7 @@ const AllComplains = () => {
   const handleStatusChange = async (id, newStatus) => {
     try {
       await axios.put(
-        `http://localhost:8000/api/updatecomplaintstatus/${id}`,
+        `${baseURL}/api/updatecomplaintstatus/${id}`,
         { status: newStatus },
         {
           headers: { Authorization: `Bearer ${token}` }

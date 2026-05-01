@@ -26,10 +26,10 @@ const baseURL = import.meta.env.VITE_APP_URL;
   const fetchUsers = async () => {
     try {
       // 1. Get the base URL from your Vercel Environment Variable
-      // const baseURL = import.meta.env.VITE_APP_URL;
+      const baseURL = import.meta.env.VITE_APP_URL;
 
       // 2. Combine with your getall endpoint
-      const { data } = await axios.get(`http://localhost:8000/api/getall`, {
+      const { data } = await axios.get(`${baseURL}/api/getall`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -45,7 +45,7 @@ const baseURL = import.meta.env.VITE_APP_URL;
   const handleDelete = async (id, role) => {
     if (window.confirm('Are you sure you want to delete this record?')) {
       try {
-        const { data } = await axios.delete(`http://localhost:8000/api/delete/${id}`, {
+        const { data } = await axios.delete(`${baseURL}/api/delete/${id}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
 

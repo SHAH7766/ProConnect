@@ -35,13 +35,13 @@ const ForgotPasswordForm = () => {
   }, [password]);
 
   const isPasswordValid = Object.values(passwordCriteria).every(Boolean);
-
+  const baseURL = import.meta.env.VITE_APP_URL;
   // --- HANDLER: SEND RESET LINK ---
   const handleSendLink = async () => {
     if (!email) return setToast({ show: true, message: "Email is required", type: "danger" });
     try {
       setLoading({ ...loading, link: true });
-      const { data } = await axios.post(`http://localhost:8000/api/forgotpassword`, { email });
+      const { data } = await axios.post(`${baseURL}/api/forgotpassword`, { email });
       if (data.success) {
         setToast({ show: true, message: "Reset link sent to your email!", type: "success" });
       }
@@ -55,18 +55,18 @@ const ForgotPasswordForm = () => {
   // --- HANDLER: REQUEST/RESEND OTP ---
   const handleRequestOtp = async (isResend = false) => {
     if (!email) return setToast({ show: true, message: "Email is required", type: "danger" });
-    
+
     try {
       // Use 'resending' loader if it's a resend request to keep the main button clean
       setLoading({ ...loading, [isResend ? 'resending' : 'otp']: true });
-      
-      const { data } = await axios.post(`http://localhost:8000/api/sendotp`, { email });
-      
+
+      const { data } = await axios.post(`${baseURL}/api/sendotp`, { email });
+
       if (data.success) {
-        setToast({ 
-          show: true, 
-          message: isResend ? "New OTP sent successfully!" : "OTP sent to your email!", 
-          type: "success" 
+        setToast({
+          show: true,
+          message: isResend ? "New OTP sent successfully!" : "OTP sent to your email!",
+          type: "success"
         });
         if (!isResend) setStep(2);
       }
@@ -85,10 +85,10 @@ const ForgotPasswordForm = () => {
 
     try {
       setLoading({ ...loading, otp: true });
-      const { data } = await axios.post(`http://localhost:8000/api/verifyotp`, { 
-        email, 
-        otp, 
-        password 
+      const { data } = await axios.post(`${baseURL}/api/verifyotp`, {
+        email,
+        otp,
+        password
       });
 
       if (data.success) {
@@ -96,10 +96,10 @@ const ForgotPasswordForm = () => {
         setTimeout(() => navigate('/login'), 2000);
       }
     } catch (err) {
-      setToast({ 
-        show: true, 
-        message: err.response?.data?.Message || "OTP may be expired or invalid", 
-        type: "danger" 
+      setToast({
+        show: true,
+        message: err.response?.data?.Message || "OTP may be expired or invalid",
+        type: "danger"
       });
     } finally {
       setLoading({ ...loading, otp: false });
@@ -146,47 +146,47 @@ const ForgotPasswordForm = () => {
                   </div>
                   <Form onSubmit={handleVerifyAndUpdate}>
                     <Form.Group className="mb-3">
-                        <Form.Label>Verification Code</Form.Label>
-                        <Form.Control 
-                            type="text" 
-                            placeholder="6-digit OTP" 
-                            value={otp} 
-                            onChange={(e) => setOtp(e.target.value)} 
-                            required 
-                        />
-                        {/* RESEND BUTTON */}
-                        <div className="text-end mt-1">
-                          <Button 
-                            variant="link" 
-                            size="sm" 
-                            className="p-0 text-decoration-none" 
-                            onClick={() => handleRequestOtp(true)}
-                            disabled={loading.resending}
-                          >
-                            {loading.resending ? "Sending..." : "Resend OTP?"}
-                          </Button>
-                        </div>
+                      <Form.Label>Verification Code</Form.Label>
+                      <Form.Control
+                        type="text"
+                        placeholder="6-digit OTP"
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value)}
+                        required
+                      />
+                      {/* RESEND BUTTON */}
+                      <div className="text-end mt-1">
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="p-0 text-decoration-none"
+                          onClick={() => handleRequestOtp(true)}
+                          disabled={loading.resending}
+                        >
+                          {loading.resending ? "Sending..." : "Resend OTP?"}
+                        </Button>
+                      </div>
                     </Form.Group>
 
                     <Form.Group className="mb-3">
-                        <Form.Label>New Password</Form.Label>
-                        <Form.Control 
-                            type="password" 
-                            placeholder="New password" 
-                            value={password} 
-                            onChange={(e) => setPassword(e.target.value)} 
-                            required 
-                        />
+                      <Form.Label>New Password</Form.Label>
+                      <Form.Control
+                        type="password"
+                        placeholder="New password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                      />
                     </Form.Group>
 
                     <div className="mb-3 p-2 bg-light rounded shadow-sm">
                       {Object.entries(passwordCriteria).map(([key, val]) => (
                         <small key={key} className={val ? "text-success d-block" : "text-muted d-block"}>
                           {val ? "✓" : "○"} {
-                            key === 'upper' ? 'One uppercase letter' : 
-                            key === 'length' ? 'Min 7 characters' : 
-                            key === 'number' ? 'One number' : 
-                            'One special character'
+                            key === 'upper' ? 'One uppercase letter' :
+                              key === 'length' ? 'Min 7 characters' :
+                                key === 'number' ? 'One number' :
+                                  'One special character'
                           }
                         </small>
                       ))}
@@ -195,9 +195,9 @@ const ForgotPasswordForm = () => {
                     <Button type="submit" className="w-100 py-2 mb-2" disabled={loading.otp || !isPasswordValid}>
                       {loading.otp ? "Verifying..." : "Verify & Update Password"}
                     </Button>
-                    
+
                     <Button variant="link" className="w-100 text-muted small" onClick={() => setStep(1)}>
-                        Change reset method
+                      Change reset method
                     </Button>
                   </Form>
                 </>

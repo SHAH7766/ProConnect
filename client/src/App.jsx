@@ -53,7 +53,7 @@ function App() {
           <Route path='/allcomplaints' element={<AllComplains />} />
           <Route path='/forgotpassword' element={<ForgotPasswordForm />} />
           <Route path='/resetpassword' element={<ResetPassword />} />
-          <Route path='/genOTP' element={<Otp/>}/>
+          
         </Routes>
       </div>
     </>
