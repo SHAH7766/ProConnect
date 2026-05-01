@@ -1,39 +1,21 @@
-import nodemailer from 'nodemailer';
+import { Resend } from "resend";
 
-/**
- * SHARED TRANSPORTER
- * Reusing this across your app prevents the "ETIMEDOUT" errors 
- * seen in your logs by managing a stable connection pool.
- */
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587, 
-  secure: false, // true for port 465
-  auth: {
-    user: process.env.APP_USERNAME,
-    pass: process.env.APP_PASSWORD, // Must be your 16-digit Google App Password
-  },
-  pool: true,
-  maxConnections: 5,
-  connectionTimeout: 10000, 
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export const LoginEmail = async (email) => {
   try {
-    const info = await transporter.sendMail({
-      from: `"ProConnect Security" <${process.env.APP_USERNAME}>`,
+    const response = await resend.emails.send({
+      from: "ProConnect Security <onboarding@resend.dev>", // change after domain verify
       to: email,
       subject: "🔐 Security Alert: New Login Detected",
       html: `
         <div style="font-family: Arial, sans-serif; background:#f4f6f8; padding:40px;">
           <div style="max-width:600px;margin:auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,0.1);">
             
-            <!-- Header -->
             <div style="background:#4f46e5;padding:20px;text-align:center;color:white;">
               <h2 style="margin:0;">ProConnect Security Alert</h2>
             </div>
 
-            <!-- Body -->
             <div style="padding:30px;color:#333;">
               <h3 style="margin-top:0;">New Login Detected 🔐</h3>
 
@@ -57,7 +39,6 @@ export const LoginEmail = async (email) => {
               </div>
             </div>
 
-            <!-- Footer -->
             <div style="background:#f3f4f6;text-align:center;padding:15px;font-size:12px;color:#777;">
               © ${new Date().getFullYear()} ProConnect. All rights reserved.
             </div>
@@ -67,11 +48,10 @@ export const LoginEmail = async (email) => {
       `,
     });
 
-    console.log("Security Alert sent: %s", info.messageId);
-    return info;
+    console.log("Security Alert sent:", response);
+    return response;
 
   } catch (error) {
-    // This block prevents the app from crashing even if the email fails
     console.error("Login Notification Error:", error.message);
     return null;
   }
