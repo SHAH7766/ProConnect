@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { Container, Table, Badge, Button, Toast, ToastContainer, Alert, Spinner } from 'react-bootstrap';
+import { Container, Table, Badge, Button, Toast, ToastContainer, Alert } from 'react-bootstrap';
 import axios from 'axios';
 import { FiTrash2 } from 'react-icons/fi';
 
 const AllComplains = () => {
   const token = localStorage.getItem('token');
-  const [loading, setloading] = useState(true)
 
+  const [loading, setLoading] = useState(true);
   const [complaints, setComplaints] = useState([]);
   const [error, setError] = useState('');
+
   const baseURL = import.meta.env.VITE_APP_URL;
+
   const [toast, setToast] = useState({
     show: false,
     message: '',
@@ -23,7 +25,6 @@ const AllComplains = () => {
   // ✅ GET ALL COMPLAINTS
   const fetchComplaints = async () => {
     try {
-      const baseURL = import.meta.env.VITE_APP_URL;
       const result = await axios.get(
         `${baseURL}/api/allcomplaints`,
         {
@@ -31,22 +32,16 @@ const AllComplains = () => {
         }
       );
 
-      setComplaints(result.data); // ✅ FIXED
-      setloading(false)
+      setComplaints(result.data || []);
+      setLoading(false);
 
     } catch (error) {
       console.log(error);
       setError('Failed to fetch complaints');
+      setLoading(false);
     }
   };
-  if (loading) {
-    return (
-      <div className='d-flex justify-content-center mt-5'>
-        <div className="spinner-border text-primary " role="status">
-          <span className="visually-hidden">Loading...</span>
-        </div>
-      </div>)
-  }
+
   // ✅ UPDATE STATUS
   const handleStatusChange = async (id, newStatus) => {
     try {
@@ -77,23 +72,40 @@ const AllComplains = () => {
     }
   };
 
-  // (optional delete)
+  // optional delete
   const handleDelete = (id) => {
     console.log("Delete complaint:", id);
   };
 
+  // ⛔ Loading state
+  if (loading) {
+    return (
+      <div className='d-flex justify-content-center mt-5'>
+        <div className="spinner-border text-primary" role="status">
+          <span className="visually-hidden">Loading...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Container className="py-5 position-relative">
 
+      {/* Header */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2 className="fw-bold">All Complaints</h2>
+
         <Badge bg="primary" className="p-2 fs-6">
-          Total: {complaints.length}
+          Total: {
+            complaints.filter(c => c && c.customerId).length
+          }
         </Badge>
       </div>
 
+      {/* Error */}
       {error && <Alert variant="danger">{error}</Alert>}
 
+      {/* Table */}
       <div className="glass-card shadow-sm border-0 p-4">
 
         <Table hover responsive className="align-middle mb-0">
@@ -112,21 +124,22 @@ const AllComplains = () => {
           </thead>
 
           <tbody>
-            {complaints.length > 0 ? (
-              complaints.map((complaint) => (
+            {complaints
+              // ✅ IMPORTANT FIX: skip null or missing users
+              .filter((complaint) => complaint && complaint.customerId)
+              .map((complaint) => (
                 <tr key={complaint._id}>
 
-                  <td className="fw-semibold">{complaint._id.slice(0, 10)}</td>
-
-                  <td>
-                    {complaint.customerId._id}
+                  <td className="fw-semibold">
+                    {complaint._id.slice(0, 10)}
                   </td>
 
+                  <td>{complaint.customerId._id}</td>
                   <td>{complaint.customerId.name}</td>
                   <td>{complaint.customerId.email}</td>
+
                   <td>{complaint.message}</td>
 
-                  {/* ✅ STATUS DROPDOWN */}
                   <td>
                     <select
                       value={complaint.status}
@@ -140,7 +153,6 @@ const AllComplains = () => {
                       <option value="resolved">Resolved</option>
                     </select>
                   </td>
-
 
                   <td>{complaint.TypeOfComplaint}</td>
 
@@ -156,20 +168,13 @@ const AllComplains = () => {
                   </td>
 
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="6" className="text-center py-4 text-muted">
-                  No complaints found
-                </td>
-              </tr>
-            )}
+              ))}
           </tbody>
 
         </Table>
       </div>
 
-      {/* ✅ TOAST */}
+      {/* Toast */}
       <ToastContainer position="bottom-end" className="p-3">
 
         <Toast
