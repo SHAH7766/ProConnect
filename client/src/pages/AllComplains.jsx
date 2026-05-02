@@ -23,6 +23,7 @@ const AllComplains = () => {
   // ✅ GET ALL COMPLAINTS
   const fetchComplaints = async () => {
     try {
+      const baseURL = import.meta.env.VITE_APP_URL;
       const result = await axios.get(
         `${baseURL}/api/allcomplaints`,
         {

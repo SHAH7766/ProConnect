@@ -8,7 +8,7 @@ const Providers = () => {
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
 
@@ -69,7 +69,7 @@ const Providers = () => {
                         {provider.name?.charAt(0).toUpperCase() || '?'}
                       </div>
                       <Card.Title className="fw-bold mb-1">{provider.name}</Card.Title>
-                      
+
                       <Badge bg="light" text="dark" className="mb-3 d-inline-flex align-items-center gap-1 border">
                         <FiUserCheck className="text-success" /> Verified Provider
                       </Badge>
@@ -79,14 +79,14 @@ const Providers = () => {
                           <FiMail className="text-primary" /> {provider.email}
                         </p>
                         <p className="mb-0 d-flex align-items-center gap-2 text-muted small">
-                          <FiStar className="text-warning" /> 
+                          <FiStar className="text-warning" />
                           <span>Experience: <strong>{provider.experience} years</strong></span>
                         </p>
                       </div>
                     </Card.Body>
                     <Card.Footer className="bg-transparent border-0 pb-4 px-4 pt-0">
-                      <button 
-                        onClick={() => handleViewProfile(provider._id)} 
+                      <button
+                        onClick={() => handleViewProfile(provider._id)}
                         className="btn btn-primary-custom w-100 py-2"
                       >
                         View Profile
