@@ -255,6 +255,111 @@ a {
   box-shadow: 0 14px 28px rgba(37, 99, 235, 0.22);
 }
 
+.auth-screen {
+  min-height: calc(100vh - 76px);
+  padding: 36px 0;
+}
+
+.auth-card {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(219, 227, 239, 0.95);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  padding: 34px;
+}
+
+.auth-mark {
+  width: 58px;
+  height: 58px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-family: var(--font-heading);
+  font-size: 1.7rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  box-shadow: 0 16px 32px rgba(37, 99, 235, 0.22);
+}
+
+.role-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.role-option {
+  appearance: none;
+  border: 1px solid var(--border-color);
+  background: #f8fafc;
+  color: var(--text-main);
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  min-height: 86px;
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.role-option:hover {
+  transform: translateY(-2px);
+  border-color: rgba(37, 99, 235, 0.42);
+  background: #ffffff;
+}
+
+.role-option.active {
+  border-color: rgba(37, 99, 235, 0.75);
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.1), rgba(15, 118, 110, 0.06));
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
+}
+
+.role-icon {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-color);
+  background: rgba(37, 99, 235, 0.1);
+  font-size: 1.2rem;
+}
+
+.role-option.active .role-icon {
+  color: #ffffff;
+  background: var(--primary-color);
+}
+
+.role-option strong,
+.role-option small {
+  display: block;
+}
+
+.role-option small {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  margin-top: 2px;
+}
+
+.password-rules {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid var(--border-color);
+}
+
+.password-rules small {
+  font-weight: 600;
+}
+
 .badge {
   border-radius: 999px;
   font-weight: 650;
@@ -302,5 +407,13 @@ a {
 
   .hero-subtitle {
     font-size: 1rem;
+  }
+
+  .auth-card {
+    padding: 24px;
+  }
+
+  .role-picker {
+    grid-template-columns: 1fr;
   }
 }
