@@ -1,10 +1,23 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let resend;
+
+const getResendClient = () => {
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error("RESEND_API_KEY is missing. Email sending is disabled.");
+  }
+
+  if (!resend) {
+    resend = new Resend(process.env.RESEND_API_KEY);
+  }
+
+  return resend;
+};
 
 export const LoginEmail = async (email) => {
   try {
-    const response = await resend.emails.send({
+    const resendClient = getResendClient();
+    const response = await resendClient.emails.send({
       from: "ProConnect Security <onboarding@resend.dev>", // change after domain verify
       to: email,
       subject: "🔐 Security Alert: New Login Detected",

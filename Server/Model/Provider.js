@@ -19,6 +19,11 @@ const provider=new mongoose.Schema({
     experience:{
         type:String,
         required:true
+    },
+    category:{
+        type:String,
+        enum:['Plumber','Electrician'],
+        required:true
     }
 },{timestamps:true})
 export default mongoose.model('provider',provider)

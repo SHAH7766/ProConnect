@@ -1,33 +1,43 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Badge, Spinner, Alert } from 'react-bootstrap';
+import { Container, Row, Col, Card, Badge, Spinner, Alert, Form, Button } from 'react-bootstrap';
 import axios from 'axios';
-import { FiMail, FiStar, FiUserCheck } from 'react-icons/fi';
+import { FiBriefcase, FiDollarSign, FiMapPin, FiSearch, FiStar, FiTrendingUp, FiUserCheck } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 
 const Providers = () => {
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState('Plumber');
+  const [filters, setFilters] = useState({
+    maxCharges: '',
+    maxDistance: '',
+    minCompletionRate: ''
+  });
 
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
+  const baseURL = import.meta.env.VITE_APP_URL;
 
-  // Handle Navigation with Auth Check
   const handleViewProfile = (providerId) => {
     if (!token) {
       navigate('/login');
     } else {
-      // Pass the ID so the detail page knows who to fetch
       navigate(`/detail/${providerId}`);
     }
   };
-  const fetchProviders = async () => {
+
+  const fetchProviders = async (category = selectedCategory) => {
     try {
       setLoading(true);
-      // Ensure VITE_APP_URL is set in your Vercel Environment Variables
-      const baseURL = import.meta.env.VITE_APP_URL;
-      const response = await axios.get(`${baseURL}/api/getallproviders`);
+      setError(null);
+      const params = new URLSearchParams({ category });
 
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value) params.append(key, value);
+      });
+
+      const response = await axios.get(`${baseURL}/api/providers/search?${params.toString()}`);
       setProviders(response.data);
     } catch (err) {
       console.error("Error fetching providers", err);
@@ -41,14 +51,67 @@ const Providers = () => {
     fetchProviders();
   }, []);
 
+  const handleCategorySelect = (category) => {
+    setSelectedCategory(category);
+    fetchProviders(category);
+  };
+
+  const handleFilterChange = (e) => {
+    setFilters({ ...filters, [e.target.name]: e.target.value });
+  };
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    fetchProviders();
+  };
+
   return (
     <div className="py-5" style={{ background: 'var(--bg-main)', minHeight: 'calc(100vh - 76px)' }}>
       <Container>
-        <div className="text-center mb-5 animate-up">
+        <div className="text-center mb-4 animate-up">
           <h2 className="mb-2" style={{ color: 'var(--text-main)', fontWeight: '800' }}>
-            Explore Our Providers
+            Find Service Providers
           </h2>
-          <p className="text-muted">Find the right professional with the perfect experience for your needs.</p>
+          <p className="text-muted">Choose a category, tune the filters, and request the right expert.</p>
+        </div>
+
+        <div className="glass-card mb-4">
+          <div className="d-flex justify-content-center gap-2 flex-wrap mb-4">
+            {['Plumber', 'Electrician'].map((category) => (
+              <Button
+                key={category}
+                variant={selectedCategory === category ? 'primary' : 'outline-primary'}
+                onClick={() => handleCategorySelect(category)}
+                className="px-4"
+              >
+                <FiBriefcase className="me-2" />
+                {category}
+              </Button>
+            ))}
+          </div>
+
+          <Form onSubmit={handleSearch}>
+            <Row className="g-3 align-items-end">
+              <Col md={4}>
+                <Form.Label>Max Charges</Form.Label>
+                <Form.Control name="maxCharges" type="number" placeholder="e.g. 2500" value={filters.maxCharges} onChange={handleFilterChange} />
+              </Col>
+              <Col md={4}>
+                <Form.Label>Max Distance</Form.Label>
+                <Form.Control name="maxDistance" type="number" placeholder="e.g. 8 km" value={filters.maxDistance} onChange={handleFilterChange} />
+              </Col>
+              <Col md={4}>
+                <Form.Label>Min Completion Rate</Form.Label>
+                <Form.Control name="minCompletionRate" type="number" placeholder="e.g. 90" value={filters.minCompletionRate} onChange={handleFilterChange} />
+              </Col>
+              <Col xs={12}>
+                <Button type="submit" className="w-100 btn-primary-custom">
+                  <FiSearch className="me-2" />
+                  Find Providers
+                </Button>
+              </Col>
+            </Row>
+          </Form>
         </div>
 
         {error && <Alert variant="danger" className="text-center">{error}</Alert>}
@@ -76,11 +139,20 @@ const Providers = () => {
 
                       <div className="text-start mt-3 pt-3 border-top">
                         <p className="mb-2 d-flex align-items-center gap-2 text-muted small">
-                          <FiMail className="text-primary" /> {provider.email}
+                          <FiStar className="text-warning" />
+                          <span>Rating: <strong>{provider.rating}</strong></span>
+                        </p>
+                        <p className="mb-2 d-flex align-items-center gap-2 text-muted small">
+                          <FiDollarSign className="text-success" />
+                          <span>Charges: <strong>Rs. {provider.charges}</strong></span>
+                        </p>
+                        <p className="mb-2 d-flex align-items-center gap-2 text-muted small">
+                          <FiMapPin className="text-danger" />
+                          <span>Distance: <strong>{provider.distance} km</strong></span>
                         </p>
                         <p className="mb-0 d-flex align-items-center gap-2 text-muted small">
-                          <FiStar className="text-warning" />
-                          <span>Experience: <strong>{provider.experience} years</strong></span>
+                          <FiTrendingUp className="text-primary" />
+                          <span>Completion: <strong>{provider.completionRate}%</strong></span>
                         </p>
                       </div>
                     </Card.Body>

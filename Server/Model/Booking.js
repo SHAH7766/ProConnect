@@ -1,54 +1,53 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose'
 
 const bookingSchema = new mongoose.Schema({
-  // 1. PARTICIPANTS
   customerId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'user',
     required: true
   },
   providerId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Provider',
+    ref: 'provider',
     required: true
   },
-
-  // 2. SERVICE DETAILS
-  serviceCategory: { 
-    type: String, 
-    required: true // e.g., 'Plumbing', 'Electrical'
+  serviceCategory: {
+    type: String,
+    required: true
   },
-  description: { 
-    type: String ,
+  description: {
+    type: String,
+    default: ''
   },
-  scheduledDate: { 
-    type: Date, 
-    required: true 
+  scheduledDate: {
+    type: Date,
+    required: true
   },
   address: {
     street: String,
     city: String,
-    area: String, // Useful for local navigation in cities like Lahore
+    area: String,
   },
-
-  // 3. FINANCIALS
+  charges: {
+    type: Number,
+    default: 0
+  },
+  problemPhoto: {
+    type: String
+  },
   paymentStatus: {
     type: String,
     enum: ['Pending', 'Paid', 'Refunded'],
     default: 'Pending'
   },
-
-  // 4. WORKFLOW STATUS
   status: {
     type: String,
     enum: ['Requested', 'Accepted', 'In-Progress', 'Completed', 'Cancelled', 'Disputed'],
     default: 'Requested'
   },
-
-  // 5. POST-SERVICE
-  completionPhoto: { 
-    type: String // Proof of work uploaded by provider
+  completionPhoto: {
+    type: String
   }
 }, { timestamps: true });
 
-module.exports = mongoose.model('Booking', bookingSchema);
+export default mongoose.model('Booking', bookingSchema);

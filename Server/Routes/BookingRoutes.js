@@ -1,0 +1,17 @@
+import express from 'express'
+import { CreateBooking, DeleteBookingRequest, GetBookingMessages, GetMyBookings, GetProviderDetails, SearchProviders, SendBookingMessage, UpdateBookingStatus } from "../Controllers/BookingController.js"
+import { VerifyToken } from "../Middleware/validator.js"
+import { upload } from "../Middleware/upload.js"
+
+const BookingRouter = express.Router()
+
+BookingRouter.get("/providers/search", SearchProviders)
+BookingRouter.get("/providers/:id", GetProviderDetails)
+BookingRouter.post("/bookings", VerifyToken, upload.single('problemPhoto'), CreateBooking)
+BookingRouter.get("/mybookings", VerifyToken, GetMyBookings)
+BookingRouter.delete("/bookings/:id", VerifyToken, DeleteBookingRequest)
+BookingRouter.put("/bookings/:id/status", VerifyToken, UpdateBookingStatus)
+BookingRouter.get("/bookings/:id/messages", VerifyToken, GetBookingMessages)
+BookingRouter.post("/bookings/:id/messages", VerifyToken, SendBookingMessage)
+
+export default BookingRouter;

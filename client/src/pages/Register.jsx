@@ -17,7 +17,8 @@ const Register = () => {
     name: '',
     email: '',
     password: '',
-    experience: ''
+    experience: '',
+    category: ''
   });
 
   const baseURL = import.meta.env.VITE_APP_URL;
@@ -68,14 +69,30 @@ const Register = () => {
       });
     }
 
+    if (isProvider && !formData.category) {
+      return setToast({
+        show: true,
+        message: "Please select provider category",
+        type: "danger"
+      });
+    }
+
     const endpoint = isProvider
       ? `${baseURL}/api/regprovider`
       : `${baseURL}/api/reguser`;
 
+    const payload = isProvider
+      ? formData
+      : {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password
+      };
+
     try {
       setLoading(true); // ✅ START LOADING
 
-      await axios.post(endpoint, formData);
+      await axios.post(endpoint, payload);
 
       setToast({
         show: true,
@@ -169,13 +186,28 @@ const Register = () => {
 
                 {/* PROVIDER */}
                 {isProvider && (
-                  <Form.Control
-                    className="mb-3"
-                    name="experience"
-                    placeholder="Experience"
-                    onChange={handleChange}
-                    required
-                  />
+                  <>
+                    <Form.Select
+                      className="mb-3"
+                      name="category"
+                      value={formData.category}
+                      onChange={handleChange}
+                      required
+                    >
+                      <option value="">Select provider category</option>
+                      <option value="Electrician">Electrician</option>
+                      <option value="Plumber">Plumber</option>
+                    </Form.Select>
+
+                    <Form.Control
+                      className="mb-3"
+                      name="experience"
+                      placeholder="Experience in years"
+                      value={formData.experience}
+                      onChange={handleChange}
+                      required
+                    />
+                  </>
                 )}
 
                 <Button type="submit" className="w-100" disabled={loading}>

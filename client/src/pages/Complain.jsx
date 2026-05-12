@@ -11,7 +11,7 @@ const Complain = () => {
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 const baseURL = import.meta.env.VITE_APP_URL;
   const handleSubmit = async (e) => {
-    let tokena = localStorage.getItem('token') 
+    let token = localStorage.getItem('token') 
     e.preventDefault();
     try {
       let result = await axios.post(`${baseURL}/api/customerservice`, { message, TypeOfComplaint }, {

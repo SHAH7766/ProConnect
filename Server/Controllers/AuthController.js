@@ -6,6 +6,7 @@ import { LoginEmail } from "../utils/LoginEmail.js"
 import Complaint from "../Model/Complaint.js"
 import jwt from 'jsonwebtoken'
 import { resetpassword } from "../utils/ResetPassword.js"
+import Booking from "../Model/Booking.js"
 export const RegisterUser = async (req, res) => {
     let role = ""
     try {
@@ -49,7 +50,7 @@ export const LoginController = async (req, res) => {
         }
         if (resultPassword) {
             await LoginEmail(email)
-            const token = jwt.sign({ LoggedUser }, process.env.SECRET_KEY, { expiresIn: "5min" })
+            const token = jwt.sign({ LoggedUser }, process.env.SECRET_KEY, { expiresIn: "20min" })
             return res.send({ Message: `Welcome back ${existUser.name}`, success: true, token, role: existUser.role })
         }
     } catch (error) {
@@ -63,13 +64,15 @@ export const LoginController = async (req, res) => {
 export const RegisterProvider = async (req, res) => {
     let role = ""
     try {
-        const { name, email, password, experience } = req.body
+        const { name, email, password, experience, category } = req.body
+        if (!category || !['Plumber', 'Electrician'].includes(category))
+            return res.status(400).send({ Message: "Please select a valid provider category", success: false })
         const existProvider = await provider.findOne({ email })
         let countProviders = await provider.find()
         if (existProvider)
             return res.send({ Message: "Provider already exists", success: false })
         let hashPassword = await HashPassword(password)
-        let newProvider = await provider.create({ name, email, password: hashPassword, role: 'provider', experience })
+        let newProvider = await provider.create({ name, email, password: hashPassword, role: 'provider', experience, category })
         newProvider = await newProvider.save()
         if (newProvider) {
             await EmailClient(email, name)
@@ -149,7 +152,22 @@ export const Profile = async (req, res) => {
             return res.status(404).send({ Message: "Profile not found", success: false });
         }
 
-        return res.send({ profile: profileData, success: true });
+        const bookingFilter = role === 'provider' ? { providerId: id } : { customerId: id };
+        const bookings = await Booking.find(bookingFilter);
+        const activity = {
+            totalRequests: bookings.length,
+            ongoingRequests: bookings.filter((booking) => ['Requested', 'Accepted', 'In-Progress'].includes(booking.status)).length,
+            completedRequests: bookings.filter((booking) => booking.status === 'Completed').length,
+            cancelledRequests: bookings.filter((booking) => booking.status === 'Cancelled').length,
+            totalPayment: bookings
+                .filter((booking) => booking.paymentStatus === 'Paid')
+                .reduce((sum, booking) => sum + (booking.charges || 0), 0),
+            pendingPayment: bookings
+                .filter((booking) => booking.paymentStatus === 'Pending')
+                .reduce((sum, booking) => sum + (booking.charges || 0), 0),
+        };
+
+        return res.send({ profile: profileData, activity, success: true });
     } catch (error) {
         console.log(error);
         return res.status(500).send({ Message: "Internal server error", success: false });
@@ -157,7 +175,7 @@ export const Profile = async (req, res) => {
 }
 export const GetAllProviders = async (req, res) => {
     try {
-        const allproviders = await provider.find()
+        const allproviders = await provider.find().select('-password')
         if (allproviders.length > 0)
             return res.status(200).send(allproviders)
         else
@@ -222,3 +240,42 @@ export const ResetPassword = async (req, res) => {
         return res.status(500).json({ success: false, Message: "Internal server error" });
     }
 };
+
+export const UpdateProfilePassword = async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).send({ Message: "Current password and new password are required", success: false });
+        }
+
+        const regex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{7,}$/;
+        if (!regex.test(newPassword)) {
+            return res.status(400).send({
+                Message: "Password must be at least 7 characters long, contain at least one uppercase letter, one number, and one special character",
+                success: false
+            });
+        }
+
+        const { id, role } = req.user;
+        const Model = role === 'provider' ? provider : user;
+        const account = await Model.findById(id);
+
+        if (!account) {
+            return res.status(404).send({ Message: "Account not found", success: false });
+        }
+
+        const isCurrentPasswordValid = await ComparePassword(currentPassword, account.password);
+        if (!isCurrentPasswordValid) {
+            return res.status(401).send({ Message: "Current password is incorrect", success: false });
+        }
+
+        account.password = await HashPassword(newPassword);
+        await account.save();
+
+        return res.status(200).send({ Message: "Password updated successfully", success: true });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).send({ Message: "Internal server error", success: false });
+    }
+}

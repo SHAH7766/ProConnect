@@ -48,7 +48,7 @@ function App() {
           <Route path="/providers" element={<Providers />} />
           <Route path="/allusers" element={<Allusers />} />
           <Route path='/profile' element={<Profile />} />
-          <Route path='/detail' element={<Detail />} />
+          <Route path='/detail/:id' element={<Detail />} />
           <Route path='/complain' element={<Complain />} />
           <Route path='/allcomplaints' element={<AllComplains />} />
           <Route path='/forgotpassword' element={<ForgotPasswordForm />} />

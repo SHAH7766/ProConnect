@@ -1,5 +1,5 @@
 import express from 'express'
-import { GetAll, RegisterUser, LoginController, RegisterProvider, loginProvider, DeleteUser, Profile, GetAllProviders, ForgotPassword, ResetPassword } from "../Controllers/AuthController.js"
+import { GetAll, RegisterUser, LoginController, RegisterProvider, loginProvider, DeleteUser, Profile, GetAllProviders, ForgotPassword, ResetPassword, UpdateProfilePassword } from "../Controllers/AuthController.js"
 import { RegisterValidator, VerifyToken, ResetPasswordValidator } from "../Middleware/validator.js"
 import { sendEmailOTP, ResetPasswordByOtp } from '../Controllers/OTPcontroller.js'
 const router = express.Router()
@@ -10,6 +10,7 @@ router.post("/loginuser", LoginController)
 router.get("/getall", VerifyToken, GetAll)
 router.delete("/delete/:id", VerifyToken, DeleteUser)
 router.get("/profile", VerifyToken, Profile)
+router.put("/profile/password", VerifyToken, UpdateProfilePassword)
 router.get("/getallproviders", GetAllProviders)
 router.post("/forgotpassword", ForgotPassword)  //=> link to reset password
 router.post("/resetpassword", ResetPasswordValidator, ResetPassword)  //=> reset password using token
