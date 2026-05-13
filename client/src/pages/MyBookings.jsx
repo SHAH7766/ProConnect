@@ -4,6 +4,8 @@ import { Badge, Button, Container, Form, Modal, Spinner, Table, Toast, ToastCont
 import { useNavigate } from 'react-router-dom';
 import { FiAlertTriangle, FiArrowLeft, FiImage, FiMapPin, FiMessageCircle, FiSend, FiStar, FiTrash2 } from 'react-icons/fi';
 
+const getChatSeenKey = (userId, bookingId) => `chatLastSeen:${userId}:${bookingId}`;
+
 const MyBookings = () => {
     const [profile, setProfile] = useState(null);
     const [bookings, setBookings] = useState([]);
@@ -32,11 +34,13 @@ const MyBookings = () => {
         if (!showChatModal || !selectedBooking) return;
 
         const intervalId = setInterval(() => {
-            fetchMessages(selectedBooking._id, false);
+            fetchMessages(selectedBooking._id, false).then((chatMessages) => {
+                markChatAsRead(selectedBooking._id, chatMessages);
+            });
         }, 3000);
 
         return () => clearInterval(intervalId);
-    }, [showChatModal, selectedBooking?._id]);
+    }, [showChatModal, selectedBooking?._id, profile?._id]);
 
     const fetchProfile = async () => {
         try {
@@ -94,18 +98,29 @@ const MyBookings = () => {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setMessages(data);
+            return data;
         } catch (err) {
             if (showErrors) {
                 setShowChatModal(false);
                 setToast({ show: true, message: err.response?.data?.Message || "Unable to open chat.", type: 'danger' });
             }
+            return [];
+        }
+    };
+
+    const markChatAsRead = (bookingId, chatMessages = []) => {
+        const incomingMessages = chatMessages.filter((item) => item.senderId?.toString() !== profile?._id?.toString());
+        const latestIncoming = incomingMessages[incomingMessages.length - 1];
+        if (profile?._id && latestIncoming?.createdAt) {
+            localStorage.setItem(getChatSeenKey(profile._id, bookingId), latestIncoming.createdAt);
         }
     };
 
     const openChat = async (booking) => {
         setSelectedBooking(booking);
         setShowChatModal(true);
-        await fetchMessages(booking._id);
+        const chatMessages = await fetchMessages(booking._id);
+        markChatAsRead(booking._id, chatMessages);
     };
 
     const replaceMessage = (tempId, nextMessage) => {

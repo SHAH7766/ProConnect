@@ -250,6 +250,48 @@ export const GetMyBookings = async (req, res) => {
     }
 };
 
+export const GetLatestIncomingChatMessages = async (req, res) => {
+    try {
+        const filter = req.user.role === 'provider'
+            ? { providerId: req.user.id }
+            : { customerId: req.user.id };
+
+        const bookings = await Booking.find({
+            ...filter,
+            status: { $in: ['Accepted', 'In-Progress', 'Completed'] }
+        })
+            .populate('providerId', 'name')
+            .populate('customerId', 'name')
+            .select('serviceCategory providerId customerId status');
+
+        const latestMessages = await Promise.all(bookings.map(async (booking) => {
+            const latestMessage = await Message.findOne({
+                bookingId: booking._id,
+                senderId: { $ne: req.user.id }
+            }).sort({ createdAt: -1 });
+
+            if (!latestMessage) return null;
+
+            const otherParty = req.user.role === 'provider'
+                ? booking.customerId?.name || 'Customer'
+                : booking.providerId?.name || 'Provider';
+
+            return {
+                bookingId: booking._id,
+                serviceCategory: booking.serviceCategory,
+                otherParty,
+                message: latestMessage.message,
+                createdAt: latestMessage.createdAt
+            };
+        }));
+
+        return res.status(200).send(latestMessages.filter(Boolean));
+    } catch (error) {
+        console.log(error);
+        return res.status(500).send({ Message: "Internal server error", success: false });
+    }
+};
+
 export const UpdateBookingStatus = async (req, res) => {
     try {
         const { status, paymentStatus } = req.body;

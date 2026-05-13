@@ -2,12 +2,15 @@ import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 import { Alert, Badge, Button, Col, Container, Row, Spinner } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
-import { FiCalendar, FiCheckCircle, FiCreditCard, FiEdit, FiLogOut, FiUser, FiXCircle } from 'react-icons/fi';
+import { FiCalendar, FiCheckCircle, FiCreditCard, FiEdit, FiLogOut, FiMessageCircle, FiUser, FiXCircle } from 'react-icons/fi';
+
+const getChatSeenKey = (userId, bookingId) => `chatLastSeen:${userId}:${bookingId}`;
 
 const Profile = () => {
     const [data, setData] = useState(null);
     const [activity, setActivity] = useState(null);
     const [providerWarnings, setProviderWarnings] = useState([]);
+    const [newChatMessages, setNewChatMessages] = useState([]);
     const [loading, setLoading] = useState(true);
     const token = localStorage.getItem("token");
     const navigate = useNavigate();
@@ -16,6 +19,17 @@ const Profile = () => {
     useEffect(() => {
         fetchProfile();
     }, [token]);
+
+    useEffect(() => {
+        if (!data?._id) return;
+
+        fetchLatestChatMessages(data._id);
+        const intervalId = setInterval(() => {
+            fetchLatestChatMessages(data._id);
+        }, 5000);
+
+        return () => clearInterval(intervalId);
+    }, [data?._id]);
 
     const fetchProfile = async () => {
         try {
@@ -30,6 +44,23 @@ const Profile = () => {
             console.error("Profile fetch error:", err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchLatestChatMessages = async (userId) => {
+        try {
+            const { data } = await axios.get(`${baseURL}/api/bookings/chat/latest`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            const unreadMessages = data.filter((item) => {
+                const lastSeen = localStorage.getItem(getChatSeenKey(userId, item.bookingId));
+                return !lastSeen || new Date(item.createdAt).getTime() > new Date(lastSeen).getTime();
+            });
+
+            setNewChatMessages(unreadMessages);
+        } catch (err) {
+            console.error("Chat notification fetch error:", err);
         }
     };
 
@@ -99,6 +130,28 @@ const Profile = () => {
                 </Col>
 
                 <Col lg={8}>
+                    {newChatMessages.length > 0 && (
+                        <Alert variant="primary" className="mb-4 shadow-sm chat-message-pop">
+                            <div className="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                                <div>
+                                    <h5 className="fw-bold mb-2 d-flex align-items-center gap-2">
+                                        <FiMessageCircle />
+                                        New Chat Message
+                                    </h5>
+                                    <p className="mb-1">
+                                        {newChatMessages[0].otherParty} sent a message about {newChatMessages[0].serviceCategory}.
+                                    </p>
+                                    <div className="small text-muted">
+                                        "{newChatMessages[0].message}"
+                                    </div>
+                                </div>
+                                <Button variant="primary" onClick={() => navigate('/my-bookings')}>
+                                    Open Chat
+                                </Button>
+                            </div>
+                        </Alert>
+                    )}
+
                     {data?.role === 'provider' && providerWarnings.length > 0 && (
                         <Alert variant="warning" className="mb-4">
                             <h5 className="fw-bold mb-2">Provider Warning</h5>
