@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Container, Row, Col, Card, Badge, Spinner, Alert, Form, Button } from 'react-bootstrap';
+import { Container, Row, Col, Card, Badge, Spinner, Alert, Form } from 'react-bootstrap';
 import axios from 'axios';
-import { FiCpu, FiDollarSign, FiMapPin, FiNavigation, FiSearch, FiStar, FiTrendingUp, FiUserCheck } from 'react-icons/fi';
+import { FiCpu, FiDollarSign, FiSearch, FiStar, FiTrendingUp, FiUserCheck } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 
 const Providers = () => {
@@ -16,30 +16,13 @@ const Providers = () => {
   const [categorySource, setCategorySource] = useState('');
   const [userNeed, setUserNeed] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
-  const [customerLocation, setCustomerLocation] = useState(null);
 
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
   const baseURL = import.meta.env.VITE_APP_URL;
 
-  const requestCustomerLocation = () => {
-    if (!navigator.geolocation) return;
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setCustomerLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude
-        });
-      },
-      () => setCustomerLocation(null),
-      { enableHighAccuracy: false, timeout: 5000 }
-    );
-  };
-
   useEffect(() => {
     setLoading(false);
-    requestCustomerLocation();
   }, []);
 
   const handleViewProfile = (providerId) => {
@@ -57,10 +40,6 @@ const Providers = () => {
 
   const fetchProvidersByCategory = async (category) => {
     const params = new URLSearchParams({ category });
-    if (customerLocation) {
-      params.append('latitude', customerLocation.latitude);
-      params.append('longitude', customerLocation.longitude);
-    }
     const response = await axios.get(`${baseURL}/api/providers/search?${params.toString()}`);
     return response.data;
   };
@@ -96,7 +75,7 @@ const Providers = () => {
     }, 900);
 
     return () => clearTimeout(timeout);
-  }, [userNeed, customerLocation]);
+  }, [userNeed]);
 
   const searchProvidersWithAi = async (problemText) => {
     if (!problemText.trim()) {
@@ -146,12 +125,6 @@ const Providers = () => {
             Tell Us The Problem
           </h2>
           <p className="text-muted">Describe what is wrong. AI will choose the right category and recommend providers.</p>
-          {!customerLocation && (
-            <Button type="button" variant="outline-primary" size="sm" onClick={requestCustomerLocation}>
-              <FiNavigation className="me-2" />
-              Use My Location For Charges
-            </Button>
-          )}
         </div>
 
         <div className="glass-card mb-4">
@@ -205,7 +178,7 @@ const Providers = () => {
                   AI Recommendations
                 </h4>
                 <p className="text-muted mb-0">
-                  AI detected the category and ranked providers using rating, completion rate, charges, distance, and your need.
+                  AI detected the category and ranked providers using rating, completion rate, charges, and your need.
                 </p>
               </div>
               <Badge bg={recommendationSource === 'gemini' ? 'primary' : 'secondary'}>
@@ -266,10 +239,6 @@ const Providers = () => {
                             Charges: <strong>Rs. {provider.charges}</strong>
                             {provider.travelFee > 0 && <small className="text-muted"> incl. Rs. {provider.travelFee} travel</small>}
                           </span>
-                        </p>
-                        <p className="mb-2 d-flex align-items-center gap-2 text-muted small">
-                          <FiMapPin className="text-danger" />
-                          <span>Distance: <strong>{provider.distance === null ? 'N/A' : `${provider.distance} km`}</strong></span>
                         </p>
                         <p className="mb-0 d-flex align-items-center gap-2 text-muted small">
                           <FiTrendingUp className="text-primary" />

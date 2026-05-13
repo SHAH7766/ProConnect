@@ -9,6 +9,7 @@ const Register = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
     password: '',
     experience: '',
     category: '',
@@ -71,6 +72,7 @@ const Register = () => {
       : {
         name: formData.name,
         email: formData.email,
+        phone: formData.phone,
         password: formData.password,
       };
 
@@ -125,6 +127,7 @@ const Register = () => {
 
                 <Form.Control className="mb-3" name="name" placeholder="Full name" onChange={handleChange} required />
                 <Form.Control className="mb-3" name="email" type="email" placeholder="Email address" onChange={handleChange} required />
+                <Form.Control className="mb-3" name="phone" type="tel" placeholder="Phone number for calls" value={formData.phone} onChange={handleChange} />
                 <Form.Control className="mb-3" name="password" type="password" placeholder="Password" onChange={handleChange} required />
 
                 <div className="password-rules mb-3">

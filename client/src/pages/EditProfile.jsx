@@ -2,12 +2,17 @@ import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 import { Badge, Button, Col, Container, Form, Row, Spinner, Toast, ToastContainer } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
-import { FiArrowLeft, FiLock } from 'react-icons/fi';
+import { FiArrowLeft, FiMail, FiLock, FiPhone } from 'react-icons/fi';
 
 const EditProfile = () => {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [savingContact, setSavingContact] = useState(false);
     const [savingPassword, setSavingPassword] = useState(false);
+    const [contactForm, setContactForm] = useState({
+        email: '',
+        phone: ''
+    });
     const [passwordForm, setPasswordForm] = useState({
         currentPassword: '',
         newPassword: '',
@@ -28,6 +33,10 @@ const EditProfile = () => {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setData(data.profile);
+            setContactForm({
+                email: data.profile?.email || '',
+                phone: data.profile?.phone || ''
+            });
         } catch (err) {
             console.error("Profile fetch error:", err);
         } finally {
@@ -37,6 +46,36 @@ const EditProfile = () => {
 
     const handlePasswordChange = (e) => {
         setPasswordForm({ ...passwordForm, [e.target.name]: e.target.value });
+    };
+
+    const handleContactChange = (e) => {
+        setContactForm({ ...contactForm, [e.target.name]: e.target.value });
+    };
+
+    const handleContactSubmit = async (e) => {
+        e.preventDefault();
+
+        try {
+            setSavingContact(true);
+            const { data } = await axios.put(`${baseURL}/api/profile/contact`, contactForm, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            setData((current) => ({
+                ...current,
+                email: data.profile?.email || contactForm.email,
+                phone: data.profile?.phone || contactForm.phone
+            }));
+            setToast({ show: true, message: data.Message, type: 'success' });
+        } catch (err) {
+            setToast({
+                show: true,
+                message: err.response?.data?.Message || "Unable to update contact details.",
+                type: 'danger'
+            });
+        } finally {
+            setSavingContact(false);
+        }
     };
 
     const handlePasswordSubmit = async (e) => {
@@ -101,6 +140,7 @@ const EditProfile = () => {
                         </div>
                         <h3 className="fw-bold mb-1">{data?.name}</h3>
                         <p className="text-muted mb-3">{data?.email}</p>
+                        {data?.phone && <p className="text-muted mb-3">{data.phone}</p>}
                         <Badge bg={data?.role === 'admin' ? 'danger' : data?.role === 'provider' ? 'success' : 'primary'}>
                             {data?.role || 'user'}
                         </Badge>
@@ -108,6 +148,38 @@ const EditProfile = () => {
                 </Col>
 
                 <Col lg={7}>
+                    <div className="glass-card mb-4">
+                        <div className="d-flex align-items-center gap-2 mb-3">
+                            <FiMail className="text-primary" />
+                            <h4 className="fw-bold mb-0">Change Email</h4>
+                        </div>
+                        <Form onSubmit={handleContactSubmit}>
+                            <Form.Group className="mb-3">
+                                <Form.Label>Email Address</Form.Label>
+                                <Form.Control name="email" type="email" value={contactForm.email} onChange={handleContactChange} required />
+                            </Form.Group>
+                            <Button type="submit" className="btn-primary-custom" disabled={savingContact}>
+                                {savingContact ? 'Updating...' : 'Update Email'}
+                            </Button>
+                        </Form>
+                    </div>
+
+                    <div className="glass-card mb-4">
+                        <div className="d-flex align-items-center gap-2 mb-3">
+                            <FiPhone className="text-success" />
+                            <h4 className="fw-bold mb-0">Change Phone Number</h4>
+                        </div>
+                        <Form onSubmit={handleContactSubmit}>
+                            <Form.Group className="mb-3">
+                                <Form.Label>Phone Number</Form.Label>
+                                <Form.Control name="phone" type="tel" value={contactForm.phone} onChange={handleContactChange} placeholder="Phone number for calls" />
+                            </Form.Group>
+                            <Button type="submit" className="btn-primary-custom" disabled={savingContact}>
+                                {savingContact ? 'Updating...' : 'Update Phone'}
+                            </Button>
+                        </Form>
+                    </div>
+
                     <div className="glass-card">
                         <div className="d-flex align-items-center gap-2 mb-3">
                             <FiLock className="text-primary" />

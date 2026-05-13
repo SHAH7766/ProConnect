@@ -95,6 +95,26 @@ const MyBookings = () => {
         }
     };
 
+    const updatePaymentStatus = async (bookingId, paymentStatus, successMessage) => {
+        try {
+            const { data } = await axios.put(`${baseURL}/api/bookings/${bookingId}/status`, { paymentStatus }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setToast({ show: true, message: data.Message || successMessage, type: 'success' });
+            fetchBookings();
+        } catch (err) {
+            setToast({ show: true, message: err.response?.data?.Message || "Unable to update payment.", type: 'danger' });
+        }
+    };
+
+    const markBookingPaid = (bookingId) => {
+        updatePaymentStatus(bookingId, 'Paid', "Payment completed. Chat is now available.");
+    };
+
+    const releaseBookingPayment = (bookingId) => {
+        updatePaymentStatus(bookingId, 'Released', "Payment released to provider.");
+    };
+
     const deleteBookingRequest = async (bookingId) => {
         if (!window.confirm('Delete this booking request?')) return;
 
@@ -155,6 +175,14 @@ const MyBookings = () => {
         });
     };
 
+    const getMessageSenderName = (item) => {
+        const senderId = item.senderId?.toString();
+        if (senderId === profile?._id?.toString()) return 'You';
+        if (senderId === selectedBooking?.providerId?._id?.toString()) return selectedBooking.providerId.name || 'Provider';
+        if (senderId === selectedBooking?.customerId?._id?.toString()) return selectedBooking.customerId.name || 'Customer';
+        return item.senderRole === 'provider' ? 'Provider' : item.senderRole === 'user' ? 'Customer' : 'Admin';
+    };
+
     const clearVoicePreview = () => {
         if (voicePreviewUrl) URL.revokeObjectURL(voicePreviewUrl);
         setVoiceBlob(null);
@@ -170,7 +198,12 @@ const MyBookings = () => {
         try {
             clearVoicePreview();
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const mediaRecorder = new MediaRecorder(stream);
+            const recorderOptions = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+                ? { mimeType: 'audio/webm;codecs=opus' }
+                : MediaRecorder.isTypeSupported('audio/webm')
+                    ? { mimeType: 'audio/webm' }
+                    : {};
+            const mediaRecorder = new MediaRecorder(stream, recorderOptions);
             audioChunksRef.current = [];
 
             mediaRecorder.ondataavailable = (event) => {
@@ -205,6 +238,9 @@ const MyBookings = () => {
         const trimmedMessage = chatText.trim();
         if ((!trimmedMessage && !voiceBlob) || !selectedBooking) return;
 
+        const uploadVoiceBlob = voiceBlob
+            ? new Blob([voiceBlob], { type: voiceBlob.type?.split(';')[0] || 'audio/webm' })
+            : null;
         const tempId = `temp-${Date.now()}`;
         const previewUrl = voicePreviewUrl;
         const optimisticMessage = {
@@ -227,8 +263,8 @@ const MyBookings = () => {
             setSendingMessage(true);
             const payload = new FormData();
             payload.append('message', trimmedMessage);
-            if (voiceBlob) {
-                payload.append('voiceMessage', voiceBlob, `voice-${Date.now()}.webm`);
+            if (uploadVoiceBlob) {
+                payload.append('voiceMessage', uploadVoiceBlob, `voice-${Date.now()}.webm`);
             }
 
             const { data } = await axios.post(`${baseURL}/api/bookings/${selectedBooking._id}/messages`, payload, {
@@ -243,7 +279,7 @@ const MyBookings = () => {
                 setVoiceBlob(voiceBlob);
                 setVoicePreviewUrl(previewUrl);
             }
-            setToast({ show: true, message: err.response?.data?.Message || "Unable to send message.", type: 'danger' });
+            setToast({ show: true, message: err.response?.data?.Message || err.message || "Unable to send message.", type: 'danger' });
         } finally {
             setSendingMessage(false);
         }
@@ -277,6 +313,19 @@ const MyBookings = () => {
     const openProblemPhoto = (photo) => {
         setSelectedPhoto(photo);
         setShowPhotoModal(true);
+    };
+
+    const getPaymentBadgeVariant = (paymentStatus) => {
+        if (paymentStatus === 'Released') return 'success';
+        if (paymentStatus === 'Paid') return 'info';
+        if (paymentStatus === 'Refunded') return 'danger';
+        return 'secondary';
+    };
+
+    const getPaymentLabel = (paymentStatus) => {
+        if (paymentStatus === 'Paid') return 'Paid - Held';
+        if (paymentStatus === 'Released') return 'Released';
+        return paymentStatus;
     };
 
     if (loading) {
@@ -317,19 +366,32 @@ const MyBookings = () => {
                                 <td>{profile?.role === 'provider' ? booking.customerId?.name || 'N/A' : booking.providerId?.name || 'N/A'}</td>
                                 <td>{booking.scheduledDate ? new Date(booking.scheduledDate).toLocaleDateString() : 'N/A'}</td>
                                 <td><Badge bg={booking.status === 'Completed' ? 'success' : booking.status === 'Cancelled' ? 'danger' : 'warning'}>{booking.status}</Badge></td>
-                                <td>{booking.paymentStatus}</td>
+                                <td><Badge bg={getPaymentBadgeVariant(booking.paymentStatus)}>{getPaymentLabel(booking.paymentStatus)}</Badge></td>
                                 <td>
                                     <div className="d-flex gap-2 flex-wrap">
                                         {profile?.role === 'provider' && booking.status === 'Requested' && (
                                             <Button size="sm" variant="success" onClick={() => updateBookingStatus(booking._id, 'Accepted')}>Accept</Button>
                                         )}
-                                        {profile?.role === 'provider' && booking.status === 'Accepted' && (
+                                        {profile?.role === 'provider' && booking.status === 'Accepted' && ['Paid', 'Released'].includes(booking.paymentStatus) && (
                                             <Button size="sm" variant="primary" onClick={() => updateBookingStatus(booking._id, 'In-Progress')}>Start</Button>
+                                        )}
+                                        {profile?.role === 'provider' && booking.status === 'Accepted' && !['Paid', 'Released'].includes(booking.paymentStatus) && (
+                                            <Badge bg="secondary" className="align-self-center">Waiting for payment</Badge>
                                         )}
                                         {profile?.role === 'provider' && booking.status === 'In-Progress' && (
                                             <Button size="sm" variant="success" onClick={() => updateBookingStatus(booking._id, 'Completed')}>Complete</Button>
                                         )}
-                                        {['Accepted', 'In-Progress'].includes(booking.status) && (
+                                        {profile?.role === 'user' && booking.status === 'Accepted' && booking.paymentStatus !== 'Paid' && (
+                                            <Button size="sm" variant="warning" onClick={() => markBookingPaid(booking._id)}>
+                                                Pay Now
+                                            </Button>
+                                        )}
+                                        {profile?.role === 'user' && booking.status === 'Completed' && booking.paymentStatus === 'Paid' && (
+                                            <Button size="sm" variant="success" onClick={() => releaseBookingPayment(booking._id)}>
+                                                Release Payment
+                                            </Button>
+                                        )}
+                                        {['Accepted', 'In-Progress'].includes(booking.status) && ['Paid', 'Released'].includes(booking.paymentStatus) && (
                                             <Button size="sm" variant="outline-primary" onClick={() => openChat(booking)}>
                                                 <FiMessageCircle className="me-1" />
                                                 Chat
@@ -353,7 +415,7 @@ const MyBookings = () => {
                                                 Delete
                                             </Button>
                                         )}
-                                        {profile?.role === 'user' && booking.providerId?._id && (
+                                        {profile?.role === 'user' && booking.providerId?._id && booking.status === 'Completed' && (
                                             <Button
                                                 size="sm"
                                                 variant="outline-danger"
@@ -399,10 +461,17 @@ const MyBookings = () => {
                             return (
                                 <div key={item._id} className={`d-flex mb-2 ${isMine ? 'justify-content-end' : 'justify-content-start'}`}>
                                     <div className={`p-2 rounded ${isMine ? 'bg-primary text-white' : 'bg-white border'}`} style={{ maxWidth: '75%' }}>
-                                        <div className="small fw-semibold mb-1">{isMine ? 'You' : item.senderRole}</div>
+                                        <div className="small fw-semibold mb-1">{getMessageSenderName(item)}</div>
                                         {item.message && <div>{item.message}</div>}
                                         {item.audioUrl && (
-                                            <audio controls src={item.audioUrl} className="chat-audio-player mt-2">
+                                            <audio
+                                                controls
+                                                controlsList="nodownload noplaybackrate"
+                                                disablePictureInPicture
+                                                onContextMenu={(e) => e.preventDefault()}
+                                                src={item.audioUrl}
+                                                className="chat-audio-player mt-2"
+                                            >
                                                 Your browser does not support audio playback.
                                             </audio>
                                         )}
@@ -419,7 +488,18 @@ const MyBookings = () => {
                     <Form onSubmit={sendChatMessage}>
                         {voicePreviewUrl && (
                             <div className="voice-preview mb-2">
-                                <audio controls src={voicePreviewUrl} className="chat-audio-player" />
+                                <audio
+                                    controls
+                                    controlsList="nodownload noplaybackrate"
+                                    disablePictureInPicture
+                                    onContextMenu={(e) => e.preventDefault()}
+                                    src={voicePreviewUrl}
+                                    className="chat-audio-player"
+                                />
+                                <Button type="submit" size="sm" variant="primary" disabled={sendingMessage}>
+                                    <FiSend className="me-1" />
+                                    Send Voice
+                                </Button>
                                 <Button type="button" size="sm" variant="outline-danger" onClick={clearVoicePreview} disabled={sendingMessage}>
                                     <FiX />
                                 </Button>

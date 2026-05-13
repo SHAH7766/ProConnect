@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 import { Alert, Badge, Button, Col, Container, Row, Spinner } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
-import { FiCalendar, FiCheckCircle, FiCreditCard, FiEdit, FiLogOut, FiMessageCircle, FiUser, FiXCircle } from 'react-icons/fi';
+import { FiCheckCircle, FiCreditCard, FiMessageCircle, FiUser, FiXCircle } from 'react-icons/fi';
 
 const getChatSeenKey = (userId, bookingId) => `chatLastSeen:${userId}:${bookingId}`;
 
@@ -64,12 +64,6 @@ const Profile = () => {
         }
     };
 
-    const handleLogout = () => {
-        localStorage.removeItem("token");
-        localStorage.removeItem("role");
-        navigate('/login');
-    };
-
     if (loading) {
         return (
             <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '60vh' }}>
@@ -108,23 +102,9 @@ const Profile = () => {
 
                         <div className="border-top pt-3">
                             <p className="mb-2"><strong>Account type:</strong> {data?.role || 'customer'}</p>
+                            {data?.phone && <p className="mb-2"><strong>Phone:</strong> {data.phone}</p>}
                             <p className="mb-2"><strong>Total requests:</strong> {activityStats.totalRequests}</p>
                             <p className="mb-0"><strong>Member since:</strong> {memberSince}</p>
-                        </div>
-
-                        <div className="d-grid gap-2 mt-4">
-                            <Button variant="outline-primary" onClick={() => navigate('/edit-profile')}>
-                                <FiEdit className="me-2" />
-                                Edit Profile
-                            </Button>
-                            <Button variant="outline-secondary" onClick={() => navigate('/my-bookings')}>
-                                <FiCalendar className="me-2" />
-                                My Bookings
-                            </Button>
-                            <Button variant="outline-danger" onClick={handleLogout}>
-                                <FiLogOut className="me-2" />
-                                Logout
-                            </Button>
                         </div>
                     </div>
                 </Col>
@@ -200,11 +180,11 @@ const Profile = () => {
                         </div>
                         <Row>
                             <Col sm={6}>
-                                <p className="text-muted mb-1">Total payment made</p>
+                                <p className="text-muted mb-1">{data?.role === 'provider' ? 'Released earnings' : 'Total payment made'}</p>
                                 <h4 className="fw-bold">Rs. {activityStats.totalPayment}</h4>
                             </Col>
                             <Col sm={6}>
-                                <p className="text-muted mb-1">Pending payment</p>
+                                <p className="text-muted mb-1">{data?.role === 'provider' ? 'Held by platform' : 'Pending payment'}</p>
                                 <h4 className="fw-bold">Rs. {activityStats.pendingPayment}</h4>
                             </Col>
                         </Row>

@@ -44,8 +44,6 @@ export const VerifyToken = async (req, res, next) => {
         const token = authHeader && authHeader.split(" ")[1];
         const decoded = jwt.verify(token, process.env.SECRET_KEY);
 
-        console.log("Decoded Payload:", decoded); // DEBUG 2
-
         req.user = decoded.LoggedUser || decoded.LoggedProvider;
         next();
     } catch (err) {

@@ -11,7 +11,7 @@ import { isProviderActive } from "../utils/ProviderActivation.js"
 export const RegisterUser = async (req, res) => {
     let role = ""
     try {
-        const { name, email, password, experience } = req.body
+        const { name, email, password, experience, phone = '' } = req.body
         const existUser = await user.findOne({ email })
         let countusers = await user.find()
         if (countusers.length > 0)
@@ -21,7 +21,7 @@ export const RegisterUser = async (req, res) => {
         if (existUser)
             return res.status(409).send({ Message: "User already exists", success: false })
         let hashPassword = await HashPassword(password)
-        let newuser = await user.create({ name, email, password: hashPassword, role: role, experience })
+        let newuser = await user.create({ name, email, phone: phone.trim(), password: hashPassword, role: role, experience })
         newuser = await newuser.save()
         if (newuser) {
             await EmailClient(email, name)
@@ -65,7 +65,7 @@ export const LoginController = async (req, res) => {
 export const RegisterProvider = async (req, res) => {
     let role = ""
     try {
-        const { name, email, password, experience, category, charges } = req.body
+        const { name, email, password, experience, category, charges, phone = '' } = req.body
         if (!category || !['Plumber', 'Electrician'].includes(category))
             return res.status(400).send({ Message: "Please select a valid provider category", success: false })
         const providerCharges = Number(charges)
@@ -79,6 +79,7 @@ export const RegisterProvider = async (req, res) => {
         let newProvider = await provider.create({
             name,
             email,
+            phone: phone.trim(),
             password: hashPassword,
             role: 'provider',
             experience,
@@ -178,16 +179,18 @@ export const Profile = async (req, res) => {
                 .populate('bookingId', 'serviceCategory scheduledDate status')
                 .sort({ createdAt: -1 })
             : [];
+        const releasedPaymentStatuses = role === 'provider' ? ['Released'] : ['Paid', 'Released'];
+        const heldPaymentStatuses = role === 'provider' ? ['Paid'] : ['Pending'];
         const activity = {
             totalRequests: bookings.length,
             ongoingRequests: bookings.filter((booking) => ['Requested', 'Accepted', 'In-Progress'].includes(booking.status)).length,
             completedRequests: bookings.filter((booking) => booking.status === 'Completed').length,
             cancelledRequests: bookings.filter((booking) => booking.status === 'Cancelled').length,
             totalPayment: bookings
-                .filter((booking) => booking.paymentStatus === 'Paid')
+                .filter((booking) => releasedPaymentStatuses.includes(booking.paymentStatus))
                 .reduce((sum, booking) => sum + (booking.charges || 0), 0),
             pendingPayment: bookings
-                .filter((booking) => booking.paymentStatus === 'Pending')
+                .filter((booking) => heldPaymentStatuses.includes(booking.paymentStatus))
                 .reduce((sum, booking) => sum + (booking.charges || 0), 0),
         };
 
@@ -280,11 +283,64 @@ export const ResetPassword = async (req, res) => {
 
     } catch (error) {
         console.error("ResetPassword Error:", error); // Check your terminal for this!
-        
+
         if (error.name === "TokenExpiredError") {
             return res.status(401).json({ success: false, Message: "Link expired" });
         }
         return res.status(500).json({ success: false, Message: "Internal server error" });
+    }
+};
+
+export const UpdateProfileContact = async (req, res) => {
+    try {
+        const { email = '', phone = '' } = req.body;
+        const { id, role } = req.user;
+        const Model = role === 'provider' ? provider : user;
+        const account = await Model.findById(id);
+
+        if (!account) {
+            return res.status(404).send({ Message: "Account not found", success: false });
+        }
+
+        const trimmedEmail = email.trim().toLowerCase();
+        const trimmedPhone = phone.trim();
+
+        if (!trimmedEmail) {
+            return res.status(400).send({ Message: "Email is required", success: false });
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(trimmedEmail)) {
+            return res.status(400).send({ Message: "Please enter a valid email address", success: false });
+        }
+
+        if (trimmedEmail !== account.email) {
+            const existingUser = await user.findOne({ email: trimmedEmail, _id: { $ne: id } });
+            const existingProvider = await provider.findOne({ email: trimmedEmail, _id: { $ne: id } });
+
+            if (existingUser || existingProvider) {
+                return res.status(409).send({ Message: "Email is already in use", success: false });
+            }
+        }
+
+        account.email = trimmedEmail;
+        account.phone = trimmedPhone;
+        await account.save();
+
+        return res.status(200).send({
+            Message: "Profile contact details updated successfully",
+            profile: {
+                _id: account._id,
+                name: account.name,
+                email: account.email,
+                phone: account.phone,
+                role: account.role
+            },
+            success: true
+        });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).send({ Message: "Internal server error", success: false });
     }
 };
 

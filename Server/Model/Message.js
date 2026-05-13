@@ -30,11 +30,10 @@ const messageSchema = new mongoose.Schema({
     }
 }, { timestamps: true })
 
-messageSchema.pre('validate', function (next) {
+messageSchema.pre('validate', function () {
     if (!this.message && !this.audioUrl) {
         this.invalidate('message', 'Message text or voice message is required')
     }
-    next()
 })
 
 export default mongoose.model('Message', messageSchema)

@@ -26,6 +26,15 @@ const RoleRoute = ({ allowedRoles, children }) => {
   return children;
 };
 
+const HomeRoute = () => {
+  const token = localStorage.getItem('token');
+  const role = localStorage.getItem('role');
+
+  if (token && role === 'provider') return <Navigate to="/profile" replace />;
+
+  return <Home />;
+};
+
 function App() {
   const navigate = useNavigate();
   useEffect(() => {
@@ -54,7 +63,7 @@ function App() {
       <Navigation />
       <div style={{ paddingTop: '76px' }}> {/* Offset for fixed navbar */}
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<HomeRoute />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/providers" element={<Providers />} />

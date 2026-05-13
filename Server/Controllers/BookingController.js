@@ -231,8 +231,8 @@ export const GetMyBookings = async (req, res) => {
             : { customerId: req.user.id };
 
         const bookings = await Booking.find(filter)
-            .populate('providerId', 'name email experience')
-            .populate('customerId', 'name email')
+            .populate('providerId', 'name email phone experience')
+            .populate('customerId', 'name email phone')
             .sort({ createdAt: -1 });
 
         const bookingIds = bookings.map((booking) => booking._id);
@@ -258,7 +258,8 @@ export const GetLatestIncomingChatMessages = async (req, res) => {
 
         const bookings = await Booking.find({
             ...filter,
-            status: { $in: ['Accepted', 'In-Progress', 'Completed'] }
+            status: { $in: ['Accepted', 'In-Progress', 'Completed'] },
+            paymentStatus: { $in: ['Paid', 'Released'] }
         })
             .populate('providerId', 'name')
             .populate('customerId', 'name')
@@ -309,8 +310,28 @@ export const UpdateBookingStatus = async (req, res) => {
             return res.status(403).send({ Message: "Not allowed to update this booking", success: false });
         }
 
+        if (status && ['In-Progress', 'Completed'].includes(status) && !['Paid', 'Released'].includes(booking.paymentStatus)) {
+            return res.status(400).send({ Message: "Payment must be completed before work can start or complete", success: false });
+        }
+
         if (status) booking.status = status;
-        if (paymentStatus) booking.paymentStatus = paymentStatus;
+        if (paymentStatus) {
+            if (!isCustomerOwner && req.user.role !== 'admin') {
+                return res.status(403).send({ Message: "Only the customer can update payment status", success: false });
+            }
+            if (paymentStatus === 'Paid' && booking.status !== 'Accepted') {
+                return res.status(400).send({ Message: "Payment is available after provider accepts the booking", success: false });
+            }
+            if (paymentStatus === 'Released') {
+                if (booking.status !== 'Completed') {
+                    return res.status(400).send({ Message: "Payment can be released after the work is completed", success: false });
+                }
+                if (booking.paymentStatus !== 'Paid') {
+                    return res.status(400).send({ Message: "Only held payments can be released", success: false });
+                }
+            }
+            booking.paymentStatus = paymentStatus;
+        }
         await booking.save();
 
         return res.status(200).send({ Message: "Booking updated successfully", booking, success: true });
@@ -350,7 +371,9 @@ export const DeleteBookingRequest = async (req, res) => {
 const canUseBookingChat = (booking, user) => {
     const isCustomer = booking.customerId.toString() === user.id;
     const isProvider = booking.providerId.toString() === user.id;
-    return (isCustomer || isProvider || user.role === 'admin') && ['Accepted', 'In-Progress', 'Completed'].includes(booking.status);
+    return (isCustomer || isProvider || user.role === 'admin')
+        && ['Accepted', 'In-Progress', 'Completed'].includes(booking.status)
+        && ['Paid', 'Released'].includes(booking.paymentStatus);
 };
 
 export const GetBookingMessages = async (req, res) => {
@@ -362,7 +385,7 @@ export const GetBookingMessages = async (req, res) => {
         }
 
         if (!canUseBookingChat(booking, req.user)) {
-            return res.status(403).send({ Message: "Chat is available after provider accepts the booking", success: false });
+            return res.status(403).send({ Message: "Chat is available after the provider accepts the booking and payment is completed", success: false });
         }
 
         const messages = await Message.find({ bookingId: booking._id }).sort({ createdAt: 1 });
@@ -383,16 +406,24 @@ export const SendBookingMessage = async (req, res) => {
         }
 
         if (!canUseBookingChat(booking, req.user)) {
-            return res.status(403).send({ Message: "Chat is available after provider accepts the booking", success: false });
+            return res.status(403).send({ Message: "Chat is available after the provider accepts the booking and payment is completed", success: false });
         }
 
         let audioUrl = '';
         let audioPublicId = '';
 
         if (req.file) {
-            const uploadedAudio = await uploadAudioBuffer(req.file.buffer);
-            audioUrl = uploadedAudio.secure_url;
-            audioPublicId = uploadedAudio.public_id;
+            try {
+                const uploadedAudio = await uploadAudioBuffer(req.file.buffer);
+                audioUrl = uploadedAudio.secure_url;
+                audioPublicId = uploadedAudio.public_id;
+            } catch (uploadError) {
+                console.log("Voice message upload failed:", uploadError.message);
+                return res.status(500).send({
+                    Message: uploadError.message || "Voice message upload failed",
+                    success: false
+                });
+            }
         }
 
         if (!message.trim() && !audioUrl) {

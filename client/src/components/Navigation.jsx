@@ -1,7 +1,7 @@
 import React from 'react';
-import { Navbar, Nav, Container, Button } from 'react-bootstrap';
+import { Navbar, Nav, Container, NavDropdown } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiBriefcase, FiUsers } from 'react-icons/fi';
+import { FiAlertTriangle, FiBriefcase, FiCalendar, FiEdit, FiLogOut, FiUser, FiUsers } from 'react-icons/fi';
 
 const Navigation = () => {
   const navigate = useNavigate();
@@ -42,13 +42,31 @@ const Navigation = () => {
           <Nav className="gap-3 mt-3 mt-lg-0">
             {isLoggedIn ? (
               <>
-                <Nav.Link as={Link} to="/profile">Profile</Nav.Link>
-                {canViewComplaints && (
-                  <Nav.Link as={Link} to={complaintsPath}>Complaints</Nav.Link>
-                )}
-                <Button type="button" variant="outline-primary" onClick={handleLogout} className="btn-outline-custom">
-                  Logout
-                </Button>
+                <NavDropdown title="Account" align="end" className="account-dropdown">
+                  <NavDropdown.Item as={Link} to="/profile">
+                    <FiUser className="me-2" />
+                    {userRole === 'provider' ? 'Dashboard' : 'Profile'}
+                  </NavDropdown.Item>
+                  <NavDropdown.Item as={Link} to="/edit-profile">
+                    <FiEdit className="me-2" />
+                    Edit Profile
+                  </NavDropdown.Item>
+                  <NavDropdown.Item as={Link} to="/my-bookings">
+                    <FiCalendar className="me-2" />
+                    My Bookings
+                  </NavDropdown.Item>
+                  {canViewComplaints && (
+                    <NavDropdown.Item as={Link} to={complaintsPath}>
+                      <FiAlertTriangle className="me-2" />
+                      Complaints
+                    </NavDropdown.Item>
+                  )}
+                  <NavDropdown.Divider />
+                  <NavDropdown.Item onClick={handleLogout} className="text-danger">
+                    <FiLogOut className="me-2" />
+                    Logout
+                  </NavDropdown.Item>
+                </NavDropdown>
               </>
 
             ) : (
