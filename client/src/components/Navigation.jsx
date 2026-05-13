@@ -7,6 +7,8 @@ const Navigation = () => {
   const navigate = useNavigate();
   const isLoggedIn = localStorage.getItem('token');
   const userRole = localStorage.getItem('role');
+  const canViewComplaints = userRole === 'user' || userRole === 'admin';
+  const complaintsPath = userRole === 'admin' ? '/allcomplaints' : '/complain';
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -41,7 +43,9 @@ const Navigation = () => {
             {isLoggedIn ? (
               <>
                 <Nav.Link as={Link} to="/profile">Profile</Nav.Link>
-                <Nav.Link as={Link} to="/allcomplaints"> Complaints</Nav.Link>
+                {canViewComplaints && (
+                  <Nav.Link as={Link} to={complaintsPath}>Complaints</Nav.Link>
+                )}
                 <Button type="button" variant="outline-primary" onClick={handleLogout} className="btn-outline-custom">
                   Logout
                 </Button>

@@ -56,6 +56,17 @@ const calculateLocationAdjustedCharges = (baseCharges, distance) => {
     return Math.round(base + travelFee);
 };
 
+const isPastDate = (value) => {
+    const selectedDate = new Date(value);
+    if (Number.isNaN(selectedDate.getTime())) return true;
+
+    const today = new Date();
+    selectedDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+
+    return selectedDate < today;
+};
+
 const buildProviderStats = async (provider, customerLocation = {}) => {
     const category = provider.category || 'Plumber';
     const { jobsCompleted, completionRate } = await getProviderBookingStats(provider._id);
@@ -149,6 +160,9 @@ export const CreateBooking = async (req, res) => {
 
         if (!providerId || !serviceCategory || !scheduledDate) {
             return res.status(400).send({ Message: "Provider, category, and date are required", success: false });
+        }
+        if (isPastDate(scheduledDate)) {
+            return res.status(400).send({ Message: "Please select today or a future date", success: false });
         }
         if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
             return res.status(400).send({ Message: "Please share your Google Maps location for this service request", success: false });

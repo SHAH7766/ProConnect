@@ -1,7 +1,15 @@
 import Complaint from "../Model/Complaint.js";
 import Booking from "../Model/Booking.js";
+
+const isAdmin = (req) => req.user?.role === 'admin';
+const canUseComplaintForm = (req) => ['user', 'admin'].includes(req.user?.role);
+
 export const DeleteAllComplaints = async (req, res) => {
     try {
+        if (!isAdmin(req)) {
+            return res.status(403).send({ Message: "Only admins can delete complaints", success: false });
+        }
+
         await Complaint.deleteMany();
         res.status(200).json({ message: 'All complaints deleted successfully' });
     } catch (error) {
@@ -12,6 +20,10 @@ export const CustomerService = async (req, res) => {
     const { message, TypeOfComplaint, providerId, bookingId } = req.body
     const customerId = req.user.id
     try {
+        if (!canUseComplaintForm(req)) {
+            return res.status(403).send({ Message: "Only customers and admins can submit complaints", success: false });
+        }
+
         if (!providerId) {
             return res.status(400).send({ Message: "Please select the provider this complaint is against", success: false })
         }
@@ -32,6 +44,10 @@ export const CustomerService = async (req, res) => {
 }
 export const GetAllComplaints = async (req, res) => {
     try {
+        if (!isAdmin(req)) {
+            return res.status(403).send({ Message: "Only admins can view all complaints", success: false });
+        }
+
         const complaints = await Complaint.find()
             .populate('customerId', 'name email')
             .populate('providerId', 'name email category')
@@ -45,6 +61,10 @@ export const GetAllComplaints = async (req, res) => {
 export const UpdateComplaintStatus = async (req, res) => {
     const { id } = req.params
     try {
+        if (!isAdmin(req)) {
+            return res.status(403).send({ Message: "Only admins can update complaint status", success: false });
+        }
+
         await Complaint.findByIdAndUpdate(id, req.body)
         return res.status(200).send({ Message: "Complaint status updated successfully", success: true })
     } catch (error) {

@@ -195,6 +195,57 @@ a {
 .delay-2 { animation-delay: 0.2s; }
 .delay-3 { animation-delay: 0.3s; }
 
+@keyframes locationConfirm {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+    box-shadow: 0 0 0 rgba(22, 163, 74, 0);
+  }
+  55% {
+    opacity: 1;
+    transform: translateY(0) scale(1.01);
+    box-shadow: 0 16px 30px rgba(22, 163, 74, 0.16);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    box-shadow: none;
+  }
+}
+
+@keyframes locationCheckPulse {
+  0% {
+    transform: scale(0.7);
+  }
+  55% {
+    transform: scale(1.14);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.location-confirmation {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 14px;
+  animation: locationConfirm 0.5s ease-out;
+}
+
+.location-check {
+  align-items: center;
+  background: #16a34a;
+  border-radius: 999px;
+  color: white;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 32px;
+  justify-content: center;
+  width: 32px;
+  animation: locationCheckPulse 0.45s ease-out;
+}
+
 /* Form Elements */
 .form-control {
   padding: 12px 16px;

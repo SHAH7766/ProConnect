@@ -288,9 +288,9 @@ const Providers = () => {
             ) : hasSearched ? (
               <div className="text-center py-5 text-muted">
                 <FiSearch size={34} className="mb-3" />
-                <h4 className="fw-bold">No {selectedCategory || 'matching'} providers available.</h4>
+                <h4 className="fw-bold">No active {selectedCategory || 'matching'} providers available.</h4>
                 <p className="mb-0">
-                  AI detected that your issue needs a {selectedCategory || 'matching provider'}, but no providers are registered in this category right now.
+                  AI detected that your issue needs a {selectedCategory || 'matching provider'}, but no admin-approved providers are active in this category right now.
                 </p>
               </div>
             ) : (
