@@ -1,20 +1,58 @@
 
 import axios from 'axios';
-import React, { useState } from 'react'
-import { Container, Table, Spinner, Alert, Button, Badge, Toast, ToastContainer } from 'react-bootstrap';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react'
+import { Alert, Toast, ToastContainer } from 'react-bootstrap';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const Complain = () => {
   let navigate = useNavigate()
+  const location = useLocation()
   const [message, setMessage] = useState('');
   const [TypeOfComplaint, setTypeOfComplaint] = useState('');
+  const [bookings, setBookings] = useState([]);
+  const [selectedBookingId, setSelectedBookingId] = useState(location.state?.bookingId || '');
+  const [selectedProviderId, setSelectedProviderId] = useState(location.state?.providerId || '');
+  const [selectedProviderName, setSelectedProviderName] = useState(location.state?.providerName || '');
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 const baseURL = import.meta.env.VITE_APP_URL;
+
+  useEffect(() => {
+    fetchBookings();
+  }, []);
+
+  const fetchBookings = async () => {
+    const token = localStorage.getItem('token');
+    try {
+      const { data } = await axios.get(`${baseURL}/api/mybookings`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setBookings(data.filter((booking) => booking.providerId?._id));
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const handleBookingSelect = (bookingId) => {
+    setSelectedBookingId(bookingId);
+    const booking = bookings.find((item) => item._id === bookingId);
+    setSelectedProviderId(booking?.providerId?._id || '');
+    setSelectedProviderName(booking?.providerId?.name || '');
+  };
+
   const handleSubmit = async (e) => {
     let token = localStorage.getItem('token') 
     e.preventDefault();
+    if (!selectedProviderId) {
+      return setToast({ show: true, message: 'Please select the booking/provider for this complaint.', type: 'danger' });
+    }
+
     try {
-      let result = await axios.post(`${baseURL}/api/customerservice`, { message, TypeOfComplaint }, {
+      let result = await axios.post(`${baseURL}/api/customerservice`, {
+        message,
+        TypeOfComplaint,
+        providerId: selectedProviderId,
+        bookingId: selectedBookingId
+      }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setToast({ show: true, message: result.data.Message, type: 'success' });
@@ -33,6 +71,24 @@ const baseURL = import.meta.env.VITE_APP_URL;
       <div className="container my-5">
         <h2 className="mb-4">Report a Problem</h2>
         <form onSubmit={handleSubmit}>
+          {selectedProviderName ? (
+            <Alert variant="warning">
+              This complaint will warn provider: <strong>{selectedProviderName}</strong>
+              {location.state?.serviceCategory ? ` (${location.state.serviceCategory})` : ''}
+            </Alert>
+          ) : (
+            <div className="mb-3">
+              <label htmlFor="bookingProvider" className="form-label">Complaint Against</label>
+              <select className="form-select" id="bookingProvider" value={selectedBookingId} onChange={(e) => handleBookingSelect(e.target.value)} required>
+                <option value="">Select a booking/provider</option>
+                {bookings.map((booking) => (
+                  <option key={booking._id} value={booking._id}>
+                    {booking.providerId?.name} - {booking.serviceCategory} - {booking.scheduledDate ? new Date(booking.scheduledDate).toLocaleDateString() : 'N/A'}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="mb-3">
             <label htmlFor="complaintType" className="form-label">Type of Complaint</label>
             <select className="form-select" id="complaintType" value={TypeOfComplaint} onChange={(e) => setTypeOfComplaint(e.target.value)} required>

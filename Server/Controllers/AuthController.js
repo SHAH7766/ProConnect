@@ -7,6 +7,7 @@ import Complaint from "../Model/Complaint.js"
 import jwt from 'jsonwebtoken'
 import { resetpassword } from "../utils/ResetPassword.js"
 import Booking from "../Model/Booking.js"
+import { isProviderActive } from "../utils/ProviderActivation.js"
 export const RegisterUser = async (req, res) => {
     let role = ""
     try {
@@ -64,19 +65,31 @@ export const LoginController = async (req, res) => {
 export const RegisterProvider = async (req, res) => {
     let role = ""
     try {
-        const { name, email, password, experience, category } = req.body
+        const { name, email, password, experience, category, charges } = req.body
         if (!category || !['Plumber', 'Electrician'].includes(category))
             return res.status(400).send({ Message: "Please select a valid provider category", success: false })
+        const providerCharges = Number(charges)
+        if (!Number.isFinite(providerCharges) || providerCharges <= 0)
+            return res.status(400).send({ Message: "Please enter valid provider charges", success: false })
         const existProvider = await provider.findOne({ email })
         let countProviders = await provider.find()
         if (existProvider)
             return res.send({ Message: "Provider already exists", success: false })
         let hashPassword = await HashPassword(password)
-        let newProvider = await provider.create({ name, email, password: hashPassword, role: 'provider', experience, category })
+        let newProvider = await provider.create({
+            name,
+            email,
+            password: hashPassword,
+            role: 'provider',
+            experience,
+            category,
+            charges: providerCharges,
+            isActive: false
+        })
         newProvider = await newProvider.save()
         if (newProvider) {
             await EmailClient(email, name)
-            return res.send({ Message: "Registered successfully", success: true })
+            return res.send({ Message: "Registered successfully. Your provider account will be reviewed and activated by admin.", success: true })
         }
         else
             return res.send({ Message: "Failed to register", success: false })
@@ -94,6 +107,11 @@ export const loginProvider = async (req, res) => {
         const resultPassword = await ComparePassword(password, existProvider.password)
         if (!resultPassword)
             return res.send({ Message: "Invalid Credinatials", success: false })
+        if (!isProviderActive(existProvider))
+            return res.status(403).send({
+                Message: "Your provider account is not active yet. Please wait for admin approval.",
+                success: false
+            })
         let LoggedProvider = {
             id: existProvider._id,
             name: existProvider.name,
@@ -154,6 +172,12 @@ export const Profile = async (req, res) => {
 
         const bookingFilter = role === 'provider' ? { providerId: id } : { customerId: id };
         const bookings = await Booking.find(bookingFilter);
+        const providerWarnings = role === 'provider'
+            ? await Complaint.find({ providerId: id, status: { $ne: 'resolved' } })
+                .populate('customerId', 'name email')
+                .populate('bookingId', 'serviceCategory scheduledDate status')
+                .sort({ createdAt: -1 })
+            : [];
         const activity = {
             totalRequests: bookings.length,
             ongoingRequests: bookings.filter((booking) => ['Requested', 'Accepted', 'In-Progress'].includes(booking.status)).length,
@@ -167,7 +191,7 @@ export const Profile = async (req, res) => {
                 .reduce((sum, booking) => sum + (booking.charges || 0), 0),
         };
 
-        return res.send({ profile: profileData, activity, success: true });
+        return res.send({ profile: profileData, activity, providerWarnings, success: true });
     } catch (error) {
         console.log(error);
         return res.status(500).send({ Message: "Internal server error", success: false });
@@ -175,13 +199,36 @@ export const Profile = async (req, res) => {
 }
 export const GetAllProviders = async (req, res) => {
     try {
-        const allproviders = await provider.find().select('-password')
+        const allproviders = await provider.find({
+            isActive: true
+        }).select('-password')
         if (allproviders.length > 0)
             return res.status(200).send(allproviders)
         else
             return res.status(404).send({ Message: "No providers found", success: false })
     } catch (error) {
 
+        console.log(error)
+        return res.status(500).send({ Message: "Internal server error", success: false })
+    }
+}
+
+export const ActivateProvider = async (req, res) => {
+    try {
+        if (req.user?.role !== 'admin') {
+            return res.status(403).send({ Message: "Only admin can activate provider accounts", success: false })
+        }
+
+        const selectedProvider = await provider.findById(req.params.id).select('-password')
+        if (!selectedProvider) {
+            return res.status(404).send({ Message: "Provider not found", success: false })
+        }
+
+        selectedProvider.isActive = true
+        await selectedProvider.save()
+
+        return res.status(200).send({ Message: "Provider account activated successfully", provider: selectedProvider, success: true })
+    } catch (error) {
         console.log(error)
         return res.status(500).send({ Message: "Internal server error", success: false })
     }

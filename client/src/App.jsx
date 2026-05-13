@@ -7,6 +7,8 @@ import Register from './pages/Register';
 import Providers from './pages/Providers';
 import Allusers from './pages/Allusers';
 import Profile from './pages/Profile';
+import EditProfile from './pages/EditProfile';
+import MyBookings from './pages/MyBookings';
 import Detail from './pages/Detail';
 import Complain from './pages/Complain';
 import AllComplains from './pages/AllComplains';
@@ -48,6 +50,8 @@ function App() {
           <Route path="/providers" element={<Providers />} />
           <Route path="/allusers" element={<Allusers />} />
           <Route path='/profile' element={<Profile />} />
+          <Route path='/edit-profile' element={<EditProfile />} />
+          <Route path='/my-bookings' element={<MyBookings />} />
           <Route path='/detail/:id' element={<Detail />} />
           <Route path='/complain' element={<Complain />} />
           <Route path='/allcomplaints' element={<AllComplains />} />

@@ -2,17 +2,72 @@ import Booking from "../Model/Booking.js";
 import Provider from "../Model/Provider.js";
 import Message from "../Model/Message.js";
 import User from "../Model/User.js";
+import Review from "../Model/Review.js";
 import { sendBookingNotification } from "../utils/BookingNotification.js";
 import { uploadImageBuffer } from "../utils/Cloudinary.js";
+import { activeProviderFilter, isProviderActive } from "../utils/ProviderActivation.js";
 
-const buildProviderStats = (provider) => {
-    const seed = provider._id.toString().split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+const DEFAULT_NEW_PROVIDER_RATING = 3.2;
+const DEFAULT_NEW_PROVIDER_COMPLETION_RATE = 70;
+const DEFAULT_BASE_CHARGES = 1000;
+const TRAVEL_RATE_PER_KM = 40;
+
+const toNumberOrNull = (value) => {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+};
+
+const calculateDistanceKm = (fromLat, fromLng, toLat, toLng) => {
+    const lat1 = toNumberOrNull(fromLat);
+    const lon1 = toNumberOrNull(fromLng);
+    const lat2 = toNumberOrNull(toLat);
+    const lon2 = toNumberOrNull(toLng);
+
+    if ([lat1, lon1, lat2, lon2].some((value) => value === null)) return null;
+
+    const toRadians = (degrees) => degrees * Math.PI / 180;
+    const earthRadiusKm = 6371;
+    const dLat = toRadians(lat2 - lat1);
+    const dLon = toRadians(lon2 - lon1);
+    const a = Math.sin(dLat / 2) ** 2
+        + Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.sin(dLon / 2) ** 2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return Number((earthRadiusKm * c).toFixed(1));
+};
+
+const getProviderBookingStats = async (providerId) => {
+    const bookings = await Booking.find({ providerId }).select('status');
+    const completed = bookings.filter((booking) => booking.status === 'Completed').length;
+    const decided = bookings.filter((booking) => ['Completed', 'Cancelled', 'Disputed'].includes(booking.status)).length;
+
+    return {
+        jobsCompleted: completed,
+        completionRate: decided > 0 ? Math.round((completed / decided) * 100) : DEFAULT_NEW_PROVIDER_COMPLETION_RATE
+    };
+};
+
+const calculateLocationAdjustedCharges = (baseCharges, distance) => {
+    const parsedBase = Number(baseCharges || 0);
+    const base = Number.isFinite(parsedBase) && parsedBase > 0 ? parsedBase : DEFAULT_BASE_CHARGES;
+    if (distance === null || distance === undefined) return Math.round(base);
+
+    const travelFee = Math.ceil(Number(distance) * TRAVEL_RATE_PER_KM);
+    return Math.round(base + travelFee);
+};
+
+const buildProviderStats = async (provider, customerLocation = {}) => {
     const category = provider.category || 'Plumber';
-    const rating = Number((4 + (seed % 10) / 10).toFixed(1));
-    const charges = 1200 + (seed % 8) * 350;
-    const distance = Number((1 + (seed % 25) / 2).toFixed(1));
-    const completionRate = 82 + (seed % 17);
-    const jobsCompleted = 40 + (seed % 360);
+    const { jobsCompleted, completionRate } = await getProviderBookingStats(provider._id);
+    const distance = calculateDistanceKm(
+        customerLocation.latitude,
+        customerLocation.longitude,
+        provider.location?.latitude,
+        provider.location?.longitude
+    );
+    const baseCharges = Number(provider.charges || 0) > 0 ? provider.charges : DEFAULT_BASE_CHARGES;
+    const calculatedCharges = calculateLocationAdjustedCharges(baseCharges, distance);
+    const travelFee = Math.max(calculatedCharges - baseCharges, 0);
     const skills = category === 'Plumber'
         ? ['Leak repair', 'Pipe fitting', 'Drain cleaning']
         : ['Wiring', 'Fault repair', 'Switch boards'];
@@ -24,21 +79,25 @@ const buildProviderStats = (provider) => {
         role: provider.role,
         experience: provider.experience,
         category,
-        rating,
-        charges,
+        rating: Number((provider.ratingAverage || DEFAULT_NEW_PROVIDER_RATING).toFixed(1)),
+        ratingCount: provider.ratingCount || 0,
+        baseCharges,
+        travelFee,
+        charges: calculatedCharges,
         distance,
         completionRate,
         jobsCompleted,
+        location: provider.location || {},
         skills,
-        summary: `${provider.name} is a verified ${category.toLowerCase()} with ${provider.experience} years of experience and a ${completionRate}% completion rate.`,
+        summary: `${provider.name} is a verified ${category.toLowerCase()} with ${provider.experience} years of experience, Rs. ${calculatedCharges} estimated charges, and ${completionRate}% completion rate.`,
     };
 };
 
 export const SearchProviders = async (req, res) => {
     try {
-        const { category, maxCharges, maxDistance, minCompletionRate } = req.query;
-        const providers = await Provider.find().select('-password');
-        let result = providers.map(buildProviderStats);
+        const { category, maxCharges, maxDistance, minCompletionRate, latitude, longitude } = req.query;
+        const providers = await Provider.find(activeProviderFilter()).select('-password');
+        let result = await Promise.all(providers.map((item) => buildProviderStats(item, { latitude, longitude })));
 
         if (category) {
             result = result.filter((item) => item.category.toLowerCase() === category.toLowerCase());
@@ -47,7 +106,7 @@ export const SearchProviders = async (req, res) => {
             result = result.filter((item) => item.charges <= Number(maxCharges));
         }
         if (maxDistance) {
-            result = result.filter((item) => item.distance <= Number(maxDistance));
+            result = result.filter((item) => item.distance !== null && item.distance <= Number(maxDistance));
         }
         if (minCompletionRate) {
             result = result.filter((item) => item.completionRate >= Number(minCompletionRate));
@@ -63,11 +122,16 @@ export const SearchProviders = async (req, res) => {
 export const GetProviderDetails = async (req, res) => {
     try {
         const provider = await Provider.findById(req.params.id).select('-password');
-        if (!provider) {
+        if (!provider || !isProviderActive(provider)) {
             return res.status(404).send({ Message: "Provider not found", success: false });
         }
 
-        return res.status(200).send({ provider: buildProviderStats(provider), success: true });
+        const providerStats = await buildProviderStats(provider, {
+            latitude: req.query.latitude,
+            longitude: req.query.longitude
+        });
+
+        return res.status(200).send({ provider: providerStats, success: true });
     } catch (error) {
         console.log(error);
         return res.status(500).send({ Message: "Internal server error", success: false });
@@ -80,9 +144,14 @@ export const CreateBooking = async (req, res) => {
         const address = typeof req.body.address === 'string'
             ? JSON.parse(req.body.address || '{}')
             : req.body.address;
+        const latitude = Number(address?.latitude);
+        const longitude = Number(address?.longitude);
 
         if (!providerId || !serviceCategory || !scheduledDate) {
             return res.status(400).send({ Message: "Provider, category, and date are required", success: false });
+        }
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+            return res.status(400).send({ Message: "Please share your Google Maps location for this service request", success: false });
         }
 
         let problemPhoto = '';
@@ -93,19 +162,34 @@ export const CreateBooking = async (req, res) => {
             problemPhoto = req.body.problemPhoto;
         }
 
+        const selectedProvider = await Provider.findById(providerId).select('email name charges isActive');
+        if (!selectedProvider || !isProviderActive(selectedProvider)) {
+            return res.status(400).send({ Message: "This provider account is not active yet", success: false });
+        }
+        const requestedCharges = Number(charges);
+        const baseCharges = Number(selectedProvider.charges || 0) > 0 ? selectedProvider.charges : DEFAULT_BASE_CHARGES;
+        const finalCharges = Number.isFinite(requestedCharges) && requestedCharges >= baseCharges
+            ? Math.round(requestedCharges)
+            : baseCharges;
+
         const booking = await Booking.create({
             customerId: req.user.id,
             providerId,
             serviceCategory,
             description,
             scheduledDate,
-            address,
-            charges,
+            address: {
+                ...address,
+                latitude,
+                longitude,
+                mapUrl: `https://www.google.com/maps?q=${latitude},${longitude}`
+            },
+            charges: finalCharges,
             problemPhoto,
         });
 
-        const [selectedProvider, customer] = await Promise.all([
-            Provider.findById(providerId).select('email name'),
+        const [, customer] = await Promise.all([
+            Promise.resolve(selectedProvider),
             User.findById(req.user.id).select('name email')
         ]);
 
@@ -114,7 +198,7 @@ export const CreateBooking = async (req, res) => {
                 customerName: customer?.name || req.user.name || "Customer",
                 serviceCategory,
                 scheduledDate: new Date(scheduledDate).toLocaleDateString(),
-                charges,
+                charges: finalCharges,
                 description
             });
         }
@@ -137,7 +221,15 @@ export const GetMyBookings = async (req, res) => {
             .populate('customerId', 'name email')
             .sort({ createdAt: -1 });
 
-        return res.status(200).send(bookings);
+        const bookingIds = bookings.map((booking) => booking._id);
+        const reviews = await Review.find({ bookingId: { $in: bookingIds } }).select('bookingId');
+        const reviewedBookingIds = new Set(reviews.map((review) => review.bookingId.toString()));
+        const result = bookings.map((booking) => ({
+            ...booking.toObject(),
+            hasReview: reviewedBookingIds.has(booking._id.toString())
+        }));
+
+        return res.status(200).send(result);
     } catch (error) {
         console.log(error);
         return res.status(500).send({ Message: "Internal server error", success: false });
@@ -249,6 +341,58 @@ export const SendBookingMessage = async (req, res) => {
         });
 
         return res.status(201).send({ Message: "Message sent", chatMessage: createdMessage, success: true });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).send({ Message: "Internal server error", success: false });
+    }
+};
+
+export const ReviewBooking = async (req, res) => {
+    try {
+        const { rating, comment = '' } = req.body;
+        const numericRating = Number(rating);
+
+        if (!Number.isFinite(numericRating) || numericRating < 1 || numericRating > 5) {
+            return res.status(400).send({ Message: "Rating must be between 1 and 5", success: false });
+        }
+
+        const booking = await Booking.findById(req.params.id);
+        if (!booking) {
+            return res.status(404).send({ Message: "Booking not found", success: false });
+        }
+
+        if (booking.customerId.toString() !== req.user.id) {
+            return res.status(403).send({ Message: "You can review only your own booking", success: false });
+        }
+
+        if (booking.status !== 'Completed') {
+            return res.status(400).send({ Message: "You can review after the booking is completed", success: false });
+        }
+
+        const existingReview = await Review.findOne({ bookingId: booking._id });
+        if (existingReview) {
+            return res.status(409).send({ Message: "You already reviewed this booking", success: false });
+        }
+
+        const review = await Review.create({
+            bookingId: booking._id,
+            providerId: booking.providerId,
+            customerId: req.user.id,
+            rating: numericRating,
+            comment: comment.trim()
+        });
+
+        const stats = await Review.aggregate([
+            { $match: { providerId: booking.providerId } },
+            { $group: { _id: '$providerId', average: { $avg: '$rating' }, count: { $sum: 1 } } }
+        ]);
+
+        await Provider.findByIdAndUpdate(booking.providerId, {
+            ratingAverage: stats[0] ? Number(stats[0].average.toFixed(1)) : 0,
+            ratingCount: stats[0]?.count || 0
+        });
+
+        return res.status(201).send({ Message: "Review submitted successfully", review, success: true });
     } catch (error) {
         console.log(error);
         return res.status(500).send({ Message: "Internal server error", success: false });

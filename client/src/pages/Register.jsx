@@ -11,7 +11,8 @@ const Register = () => {
     email: '',
     password: '',
     experience: '',
-    category: ''
+    category: '',
+    charges: ''
   });
   const [isProvider, setIsProvider] = useState(false);
   const [toast, setToast] = useState({
@@ -57,6 +58,10 @@ const Register = () => {
       return setToast({ show: true, message: 'Please select provider category', type: 'danger' });
     }
 
+    if (isProvider && (!formData.charges || Number(formData.charges) <= 0)) {
+      return setToast({ show: true, message: 'Please enter valid service charges', type: 'danger' });
+    }
+
     const endpoint = isProvider
       ? `${baseURL}/api/regprovider`
       : `${baseURL}/api/reguser`;
@@ -66,13 +71,16 @@ const Register = () => {
       : {
         name: formData.name,
         email: formData.email,
-        password: formData.password
+        password: formData.password,
       };
 
     try {
       setLoading(true);
-      await axios.post(endpoint, payload);
-      setToast({ show: true, message: 'Registration successful!', type: 'success' });
+      const { data } = await axios.post(endpoint, payload);
+      if (!data?.success) {
+        return setToast({ show: true, message: data?.Message || 'Registration failed', type: 'danger' });
+      }
+      setToast({ show: true, message: data.Message || 'Registration successful!', type: 'success' });
       setTimeout(() => navigate('/login'), 1500);
     } catch (err) {
       setToast({
@@ -136,6 +144,7 @@ const Register = () => {
                     </Form.Select>
 
                     <Form.Control className="mb-3" name="experience" placeholder="Experience in years" value={formData.experience} onChange={handleChange} required />
+                    <Form.Control className="mb-3" name="charges" type="number" min="1" placeholder="Service charges in Rs." value={formData.charges} onChange={handleChange} required />
                   </>
                 )}
 

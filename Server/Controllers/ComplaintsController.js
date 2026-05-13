@@ -1,4 +1,5 @@
 import Complaint from "../Model/Complaint.js";
+import Booking from "../Model/Booking.js";
 export const DeleteAllComplaints = async (req, res) => {
     try {
         await Complaint.deleteMany();
@@ -8,11 +9,21 @@ export const DeleteAllComplaints = async (req, res) => {
     }
 }
 export const CustomerService = async (req, res) => {
-    const { message, TypeOfComplaint } = req.body
+    const { message, TypeOfComplaint, providerId, bookingId } = req.body
     const customerId = req.user.id
-    console.log(customerId)
     try {
-        await Complaint.create({ message, TypeOfComplaint, customerId })
+        if (!providerId) {
+            return res.status(400).send({ Message: "Please select the provider this complaint is against", success: false })
+        }
+
+        if (bookingId) {
+            const booking = await Booking.findById(bookingId)
+            if (!booking || booking.customerId.toString() !== customerId || booking.providerId.toString() !== providerId) {
+                return res.status(403).send({ Message: "You can complain only against your own booking provider", success: false })
+            }
+        }
+
+        await Complaint.create({ message, TypeOfComplaint, customerId, providerId, bookingId })
         return res.status(200).send({ Message: "Complaint submitted successfully", success: true })
     } catch (error) {
         console.log(error)
@@ -21,7 +32,10 @@ export const CustomerService = async (req, res) => {
 }
 export const GetAllComplaints = async (req, res) => {
     try {
-        const complaints = await Complaint.find().populate('customerId', 'name email')
+        const complaints = await Complaint.find()
+            .populate('customerId', 'name email')
+            .populate('providerId', 'name email category')
+            .populate('bookingId', 'serviceCategory status scheduledDate')
         return res.status(200).send(complaints)
     } catch (error) {
         console.log(error)

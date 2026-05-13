@@ -42,7 +42,9 @@ const Navigation = () => {
               <>
                 <Nav.Link as={Link} to="/profile">Profile</Nav.Link>
                 <Nav.Link as={Link} to="/allcomplaints"> Complaints</Nav.Link>
-                <Button onClick={handleLogout} className="btn-outline-custom">Logout</Button>
+                <Button type="button" variant="outline-primary" onClick={handleLogout} className="btn-outline-custom">
+                  Logout
+                </Button>
               </>
 
             ) : (

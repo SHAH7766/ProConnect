@@ -116,6 +116,7 @@ const AllComplains = () => {
               <th>Customer ID</th>
               <th>Customer Name</th>
               <th>Customer Email</th>
+              <th>Provider</th>
               <th>Message</th>
               <th>Status</th>
               <th>Type</th>
@@ -137,6 +138,7 @@ const AllComplains = () => {
                   <td>{complaint.customerId._id}</td>
                   <td>{complaint.customerId.name}</td>
                   <td>{complaint.customerId.email}</td>
+                  <td>{complaint.providerId?.name || 'N/A'}</td>
 
                   <td>{complaint.message}</td>
 

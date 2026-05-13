@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Container, Table, Spinner, Alert, Button, Badge, Toast, ToastContainer } from 'react-bootstrap';
 import axios from 'axios';
-import { FiEdit, FiTrash2 } from 'react-icons/fi';
+import { FiCheckCircle, FiEdit, FiTrash2 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 
 const Allusers = () => {
@@ -67,6 +67,28 @@ const baseURL = import.meta.env.VITE_APP_URL;
     alert(`Edit feature for ID: ${id} clicked.`);
   };
 
+  const handleActivateProvider = async (id) => {
+    try {
+      const { data } = await axios.put(`${baseURL}/api/provider/${id}/activate`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (data.success) {
+        setUsers(users.map((item) => item._id === id ? { ...item, isActive: true } : item));
+        setToast({ show: true, message: data.Message || 'Provider activated successfully.', type: 'success' });
+      } else {
+        setToast({ show: true, message: data.Message || 'Unable to activate provider.', type: 'danger' });
+      }
+    } catch (err) {
+      console.error(err);
+      setToast({
+        show: true,
+        message: err.response?.data?.Message || 'An error occurred while activating provider.',
+        type: 'danger'
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '60vh' }}>
@@ -91,6 +113,7 @@ const baseURL = import.meta.env.VITE_APP_URL;
               <th className="py-3 border-0">Name</th>
               <th className="py-3 border-0">Email</th>
               <th className="py-3 border-0 mt-1">Role</th>
+              <th className="py-3 border-0">Status</th>
               <th className="py-3 border-0">Actions</th>
             </tr>
           </thead>
@@ -106,6 +129,27 @@ const baseURL = import.meta.env.VITE_APP_URL;
                     </Badge>
                   </td>
                   <td className="py-3">
+                    {user.role === 'provider' ? (
+                      <Badge bg={user.isActive ? 'success' : 'warning'} text={user.isActive ? undefined : 'dark'}>
+                        {user.isActive ? 'ACTIVE' : 'PENDING'}
+                      </Badge>
+                    ) : (
+                      <Badge bg="light" text="dark">N/A</Badge>
+                    )}
+                  </td>
+                  <td className="py-3">
+                    {user.role === 'provider' && !user.isActive && (
+                      <Button
+                        variant="outline-success"
+                        size="sm"
+                        className="me-2 rounded-circle"
+                        title="Activate provider"
+                        onClick={() => handleActivateProvider(user._id)}
+                      >
+                        <FiCheckCircle />
+                      </Button>
+                    )}
+
                     <Button
                       variant="outline-primary"
                       size="sm"
@@ -130,7 +174,7 @@ const baseURL = import.meta.env.VITE_APP_URL;
               ))
             ) : (
               <tr>
-                <td colSpan="4" className="text-center py-4 text-muted">No users found.</td>
+                <td colSpan="5" className="text-center py-4 text-muted">No users found.</td>
               </tr>
             )}
           </tbody>

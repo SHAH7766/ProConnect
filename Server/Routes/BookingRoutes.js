@@ -1,5 +1,5 @@
 import express from 'express'
-import { CreateBooking, DeleteBookingRequest, GetBookingMessages, GetMyBookings, GetProviderDetails, SearchProviders, SendBookingMessage, UpdateBookingStatus } from "../Controllers/BookingController.js"
+import { CreateBooking, DeleteBookingRequest, GetBookingMessages, GetMyBookings, GetProviderDetails, ReviewBooking, SearchProviders, SendBookingMessage, UpdateBookingStatus } from "../Controllers/BookingController.js"
 import { VerifyToken } from "../Middleware/validator.js"
 import { upload } from "../Middleware/upload.js"
 
@@ -13,5 +13,6 @@ BookingRouter.delete("/bookings/:id", VerifyToken, DeleteBookingRequest)
 BookingRouter.put("/bookings/:id/status", VerifyToken, UpdateBookingStatus)
 BookingRouter.get("/bookings/:id/messages", VerifyToken, GetBookingMessages)
 BookingRouter.post("/bookings/:id/messages", VerifyToken, SendBookingMessage)
+BookingRouter.post("/bookings/:id/review", VerifyToken, ReviewBooking)
 
 export default BookingRouter;

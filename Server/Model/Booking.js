@@ -27,6 +27,9 @@ const bookingSchema = new mongoose.Schema({
     street: String,
     city: String,
     area: String,
+    latitude: Number,
+    longitude: Number,
+    mapUrl: String,
   },
   charges: {
     type: Number,

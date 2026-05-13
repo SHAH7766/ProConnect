@@ -24,6 +24,39 @@ const provider=new mongoose.Schema({
         type:String,
         enum:['Plumber','Electrician'],
         required:true
+    },
+    charges:{
+        type:Number,
+        default:0,
+        min:0
+    },
+    location:{
+        city:{
+            type:String,
+            default:''
+        },
+        area:{
+            type:String,
+            default:''
+        },
+        latitude:{
+            type:Number
+        },
+        longitude:{
+            type:Number
+        }
+    },
+    ratingAverage:{
+        type:Number,
+        default:3.2
+    },
+    ratingCount:{
+        type:Number,
+        default:0
+    },
+    isActive:{
+        type:Boolean,
+        default:false
     }
 },{timestamps:true})
 export default mongoose.model('provider',provider)

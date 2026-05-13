@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Container, Row, Col, Form, Button, Toast, ToastContainer } from 'react-bootstrap';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { FiBriefcase, FiUser } from 'react-icons/fi';
 import axios from 'axios';
 
@@ -16,6 +16,7 @@ const Login = () => {
   });
 
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -50,7 +51,7 @@ const Login = () => {
         setTimeout(() => {
           if (data.role === 'provider') navigate('/profile');
           else if (data.role === 'admin') navigate('/allusers');
-          else navigate('/providers');
+          else navigate(location.state?.from || '/providers', { replace: true });
         }, 1000);
       } else {
         setToast({ show: true, message: data.Message || 'Invalid credentials', type: 'danger' });

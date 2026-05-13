@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Alert, Badge, Button, Col, Container, Form, Row, Spinner, Toast, ToastContainer } from 'react-bootstrap'
-import { FiCalendar, FiCheckCircle, FiDollarSign, FiImage, FiMapPin, FiSend, FiStar, FiTrendingUp, FiX } from 'react-icons/fi'
+import { FiCalendar, FiCheckCircle, FiDollarSign, FiImage, FiMapPin, FiNavigation, FiSend, FiStar, FiTrendingUp, FiX } from 'react-icons/fi'
 
 const Detail = () => {
   const { id } = useParams();
@@ -17,9 +17,9 @@ const Detail = () => {
   const [form, setForm] = useState({
     scheduledDate: '',
     description: '',
-    street: '',
-    city: '',
-    area: '',
+    latitude: '',
+    longitude: '',
+    mapUrl: '',
     problemPhoto: '',
     problemPhotoFile: null
   });
@@ -31,7 +31,20 @@ const Detail = () => {
   const fetchProvider = async () => {
     try {
       setLoading(true);
-      const { data } = await axios.get(`${baseURL}/api/providers/${id}`);
+      const params = new URLSearchParams();
+      if (navigator.geolocation) {
+        try {
+          const position = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: false, timeout: 5000 });
+          });
+          params.append('latitude', position.coords.latitude);
+          params.append('longitude', position.coords.longitude);
+        } catch {
+          // Distance is optional; provider details still load without browser location.
+        }
+      }
+      const query = params.toString() ? `?${params.toString()}` : '';
+      const { data } = await axios.get(`${baseURL}/api/providers/${id}${query}`);
       setProvider(data.provider);
     } catch (err) {
       console.error(err);
@@ -66,11 +79,37 @@ const Detail = () => {
     reader.readAsDataURL(file);
   };
 
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      return setToast({ show: true, message: 'Location is not supported by this browser.', type: 'danger' });
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+        setForm((current) => ({
+          ...current,
+          latitude,
+          longitude,
+          mapUrl: `https://www.google.com/maps?q=${latitude},${longitude}`
+        }));
+        setToast({ show: true, message: 'Google Maps location added.', type: 'success' });
+      },
+      () => setToast({ show: true, message: 'Unable to get your location. Please allow location access.', type: 'danger' }),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   const handleRequest = async (e) => {
     e.preventDefault();
 
     if (!token) {
       navigate('/login');
+      return;
+    }
+    if (!form.latitude || !form.longitude) {
+      setToast({ show: true, message: 'Please add your Google Maps location before sending request.', type: 'danger' });
       return;
     }
 
@@ -83,9 +122,9 @@ const Detail = () => {
       payload.append('description', form.description);
       payload.append('charges', provider.charges);
       payload.append('address', JSON.stringify({
-        street: form.street,
-        city: form.city,
-        area: form.area
+        latitude: form.latitude,
+        longitude: form.longitude,
+        mapUrl: form.mapUrl
       }));
 
       if (form.problemPhotoFile) {
@@ -155,12 +194,17 @@ const Detail = () => {
                   <FiDollarSign className="text-success me-2" />
                   <strong>Rs. {provider.charges}</strong>
                   <span className="text-muted ms-2">Charges</span>
+                  {provider.travelFee > 0 && (
+                    <div className="text-muted small mt-2">
+                      Base Rs. {provider.baseCharges} + travel Rs. {provider.travelFee}
+                    </div>
+                  )}
                 </div>
               </Col>
               <Col sm={6}>
                 <div className="border rounded-3 p-3 bg-white h-100">
                   <FiMapPin className="text-danger me-2" />
-                  <strong>{provider.distance} km</strong>
+                  <strong>{provider.distance === null ? 'N/A' : `${provider.distance} km`}</strong>
                   <span className="text-muted ms-2">Distance</span>
                 </div>
               </Col>
@@ -175,7 +219,7 @@ const Detail = () => {
 
             <h5 className="fw-bold">Review Summary</h5>
             <p className="text-muted mb-0">
-              Customers rate this provider highly for punctual service, clear communication, and completed work.
+              {provider.ratingCount > 0 ? `${provider.ratingCount} customer review${provider.ratingCount === 1 ? '' : 's'} recorded. ` : 'No customer reviews yet. '}
               {provider.jobsCompleted} jobs completed.
             </p>
           </div>
@@ -190,10 +234,17 @@ const Detail = () => {
                 <Form.Control name="scheduledDate" type="date" value={form.scheduledDate} onChange={handleChange} required />
               </Form.Group>
               <Form.Group className="mb-3">
-                <Form.Label>Address</Form.Label>
-                <Form.Control name="street" placeholder="Street" value={form.street} onChange={handleChange} className="mb-2" />
-                <Form.Control name="area" placeholder="Area" value={form.area} onChange={handleChange} className="mb-2" />
-                <Form.Control name="city" placeholder="City" value={form.city} onChange={handleChange} />
+                <Form.Label>Google Maps Location</Form.Label>
+                <Button type="button" variant={form.mapUrl ? 'success' : 'outline-primary'} className="w-100" onClick={useCurrentLocation}>
+                  <FiNavigation className="me-2" />
+                  {form.mapUrl ? 'Location Added' : 'Use My Current Location'}
+                </Button>
+                {form.mapUrl && (
+                  <a href={form.mapUrl} target="_blank" rel="noreferrer" className="small fw-semibold d-inline-flex align-items-center gap-1 mt-2">
+                    <FiMapPin />
+                    View selected location
+                  </a>
+                )}
               </Form.Group>
               <Form.Group className="mb-3">
                 <Form.Label>Problem Details</Form.Label>

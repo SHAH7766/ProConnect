@@ -5,7 +5,7 @@ const scoreProvider = (provider) => {
     const rating = Number(provider.rating || 0);
     const completionRate = Number(provider.completionRate || 0);
     const charges = Number(provider.charges || 0);
-    const distance = Number(provider.distance || 0);
+    const distance = provider.distance === null || provider.distance === undefined ? 25 : Number(provider.distance || 0);
 
     return Number(((rating * 22) + (completionRate * 0.55) - (charges * 0.004) - (distance * 1.7)).toFixed(2));
 };
