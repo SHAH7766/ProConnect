@@ -28,6 +28,16 @@ const MyBookings = () => {
         fetchBookings();
     }, [token]);
 
+    useEffect(() => {
+        if (!showChatModal || !selectedBooking) return;
+
+        const intervalId = setInterval(() => {
+            fetchMessages(selectedBooking._id, false);
+        }, 3000);
+
+        return () => clearInterval(intervalId);
+    }, [showChatModal, selectedBooking?._id]);
+
     const fetchProfile = async () => {
         try {
             const { data } = await axios.get(`${baseURL}/api/profile`, {
@@ -78,34 +88,71 @@ const MyBookings = () => {
         }
     };
 
-    const openChat = async (booking) => {
+    const fetchMessages = async (bookingId, showErrors = true) => {
         try {
-            setSelectedBooking(booking);
-            setShowChatModal(true);
-            const { data } = await axios.get(`${baseURL}/api/bookings/${booking._id}/messages`, {
+            const { data } = await axios.get(`${baseURL}/api/bookings/${bookingId}/messages`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setMessages(data);
         } catch (err) {
-            setShowChatModal(false);
-            setToast({ show: true, message: err.response?.data?.Message || "Unable to open chat.", type: 'danger' });
+            if (showErrors) {
+                setShowChatModal(false);
+                setToast({ show: true, message: err.response?.data?.Message || "Unable to open chat.", type: 'danger' });
+            }
         }
+    };
+
+    const openChat = async (booking) => {
+        setSelectedBooking(booking);
+        setShowChatModal(true);
+        await fetchMessages(booking._id);
+    };
+
+    const replaceMessage = (tempId, nextMessage) => {
+        setMessages((current) => current.map((item) => item._id === tempId ? nextMessage : item));
+    };
+
+    const removeMessage = (tempId) => {
+        setMessages((current) => current.filter((item) => item._id !== tempId));
+    };
+
+    const addMessageIfMissing = (nextMessage) => {
+        setMessages((current) => {
+            if (current.some((item) => item._id === nextMessage._id)) return current;
+            return [...current, nextMessage];
+        });
     };
 
     const sendChatMessage = async (e) => {
         e.preventDefault();
-        if (!chatText.trim() || !selectedBooking) return;
+        const trimmedMessage = chatText.trim();
+        if (!trimmedMessage || !selectedBooking) return;
+
+        const tempId = `temp-${Date.now()}`;
+        const optimisticMessage = {
+            _id: tempId,
+            bookingId: selectedBooking._id,
+            senderId: profile?._id,
+            senderRole: profile?.role,
+            message: trimmedMessage,
+            createdAt: new Date().toISOString(),
+            pending: true
+        };
+
+        setChatText('');
+        addMessageIfMissing(optimisticMessage);
 
         try {
             setSendingMessage(true);
             const { data } = await axios.post(`${baseURL}/api/bookings/${selectedBooking._id}/messages`, {
-                message: chatText
+                message: trimmedMessage
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setMessages([...messages, data.chatMessage]);
-            setChatText('');
+            replaceMessage(tempId, data.chatMessage);
         } catch (err) {
+            removeMessage(tempId);
+            setChatText(trimmedMessage);
             setToast({ show: true, message: err.response?.data?.Message || "Unable to send message.", type: 'danger' });
         } finally {
             setSendingMessage(false);
@@ -265,7 +312,7 @@ const MyBookings = () => {
                                         <div className="small fw-semibold mb-1">{isMine ? 'You' : item.senderRole}</div>
                                         <div>{item.message}</div>
                                         <div className={`small mt-1 ${isMine ? 'text-white-50' : 'text-muted'}`}>
-                                            {item.createdAt ? new Date(item.createdAt).toLocaleString() : ''}
+                                            {item.pending ? 'Sending...' : item.createdAt ? new Date(item.createdAt).toLocaleString() : ''}
                                         </div>
                                     </div>
                                 </div>

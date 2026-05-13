@@ -51,7 +51,7 @@ export const LoginController = async (req, res) => {
         }
         if (resultPassword) {
             await LoginEmail(email)
-            const token = jwt.sign({ LoggedUser }, process.env.SECRET_KEY, { expiresIn: "20min" })
+            const token = jwt.sign({ LoggedUser }, process.env.SECRET_KEY, { expiresIn: "50min" })
             return res.send({ Message: `Welcome back ${existUser.name}`, success: true, token, role: existUser.role })
         }
     } catch (error) {
@@ -120,7 +120,7 @@ export const loginProvider = async (req, res) => {
         }
         if (resultPassword) {
             await LoginEmail(email)
-            const token = jwt.sign({ LoggedProvider }, process.env.SECRET_KEY, { expiresIn: "20m" })
+            const token = jwt.sign({ LoggedProvider }, process.env.SECRET_KEY, { expiresIn: "50m" })
             return res.send({ Message: `Welcome back ${existProvider.name}`, success: true, token, role: LoggedProvider.role })
         }
 
