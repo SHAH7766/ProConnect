@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import axios from 'axios'
 import { Badge, Button, Container, Form, Modal, Spinner, Table, Toast, ToastContainer } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
-import { FiAlertTriangle, FiArrowLeft, FiImage, FiMapPin, FiMessageCircle, FiSend, FiStar, FiTrash2 } from 'react-icons/fi';
+import { FiAlertTriangle, FiArrowLeft, FiImage, FiMapPin, FiMessageCircle, FiMic, FiSend, FiSquare, FiStar, FiTrash2, FiX } from 'react-icons/fi';
 
 const getChatSeenKey = (userId, bookingId) => `chatLastSeen:${userId}:${bookingId}`;
 
@@ -17,6 +17,9 @@ const MyBookings = () => {
     const [selectedPhoto, setSelectedPhoto] = useState('');
     const [messages, setMessages] = useState([]);
     const [chatText, setChatText] = useState('');
+    const [voiceBlob, setVoiceBlob] = useState(null);
+    const [voicePreviewUrl, setVoicePreviewUrl] = useState('');
+    const [isRecording, setIsRecording] = useState(false);
     const [sendingMessage, setSendingMessage] = useState(false);
     const [submittingReview, setSubmittingReview] = useState(false);
     const [reviewForm, setReviewForm] = useState({ rating: '5', comment: '' });
@@ -24,6 +27,9 @@ const MyBookings = () => {
     const token = localStorage.getItem("token");
     const navigate = useNavigate();
     const baseURL = import.meta.env.VITE_APP_URL;
+    const mediaRecorderRef = useRef(null);
+    const audioChunksRef = useRef([]);
+    const voicePreviewUrlRef = useRef('');
 
     useEffect(() => {
         fetchProfile();
@@ -41,6 +47,17 @@ const MyBookings = () => {
 
         return () => clearInterval(intervalId);
     }, [showChatModal, selectedBooking?._id, profile?._id]);
+
+    useEffect(() => {
+        voicePreviewUrlRef.current = voicePreviewUrl;
+    }, [voicePreviewUrl]);
+
+    useEffect(() => {
+        return () => {
+            if (voicePreviewUrlRef.current) URL.revokeObjectURL(voicePreviewUrlRef.current);
+            mediaRecorderRef.current?.stream?.getTracks()?.forEach((track) => track.stop());
+        };
+    }, []);
 
     const fetchProfile = async () => {
         try {
@@ -138,36 +155,94 @@ const MyBookings = () => {
         });
     };
 
+    const clearVoicePreview = () => {
+        if (voicePreviewUrl) URL.revokeObjectURL(voicePreviewUrl);
+        setVoiceBlob(null);
+        setVoicePreviewUrl('');
+    };
+
+    const startRecording = async () => {
+        if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+            setToast({ show: true, message: "Voice recording is not supported by this browser.", type: 'danger' });
+            return;
+        }
+
+        try {
+            clearVoicePreview();
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const mediaRecorder = new MediaRecorder(stream);
+            audioChunksRef.current = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) audioChunksRef.current.push(event.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType || 'audio/webm' });
+                setVoiceBlob(audioBlob);
+                setVoicePreviewUrl(URL.createObjectURL(audioBlob));
+                stream.getTracks().forEach((track) => track.stop());
+            };
+
+            mediaRecorderRef.current = mediaRecorder;
+            mediaRecorder.start();
+            setIsRecording(true);
+        } catch (err) {
+            console.error(err);
+            setToast({ show: true, message: "Unable to access microphone. Please allow microphone permission.", type: 'danger' });
+        }
+    };
+
+    const stopRecording = () => {
+        if (mediaRecorderRef.current?.state === 'recording') {
+            mediaRecorderRef.current.stop();
+        }
+        setIsRecording(false);
+    };
+
     const sendChatMessage = async (e) => {
         e.preventDefault();
         const trimmedMessage = chatText.trim();
-        if (!trimmedMessage || !selectedBooking) return;
+        if ((!trimmedMessage && !voiceBlob) || !selectedBooking) return;
 
         const tempId = `temp-${Date.now()}`;
+        const previewUrl = voicePreviewUrl;
         const optimisticMessage = {
             _id: tempId,
             bookingId: selectedBooking._id,
             senderId: profile?._id,
             senderRole: profile?.role,
             message: trimmedMessage,
+            audioUrl: previewUrl,
             createdAt: new Date().toISOString(),
             pending: true
         };
 
         setChatText('');
+        setVoiceBlob(null);
+        setVoicePreviewUrl('');
         addMessageIfMissing(optimisticMessage);
 
         try {
             setSendingMessage(true);
-            const { data } = await axios.post(`${baseURL}/api/bookings/${selectedBooking._id}/messages`, {
-                message: trimmedMessage
-            }, {
+            const payload = new FormData();
+            payload.append('message', trimmedMessage);
+            if (voiceBlob) {
+                payload.append('voiceMessage', voiceBlob, `voice-${Date.now()}.webm`);
+            }
+
+            const { data } = await axios.post(`${baseURL}/api/bookings/${selectedBooking._id}/messages`, payload, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             replaceMessage(tempId, data.chatMessage);
+            if (previewUrl) URL.revokeObjectURL(previewUrl);
         } catch (err) {
             removeMessage(tempId);
             setChatText(trimmedMessage);
+            if (previewUrl) {
+                setVoiceBlob(voiceBlob);
+                setVoicePreviewUrl(previewUrl);
+            }
             setToast({ show: true, message: err.response?.data?.Message || "Unable to send message.", type: 'danger' });
         } finally {
             setSendingMessage(false);
@@ -325,7 +400,12 @@ const MyBookings = () => {
                                 <div key={item._id} className={`d-flex mb-2 ${isMine ? 'justify-content-end' : 'justify-content-start'}`}>
                                     <div className={`p-2 rounded ${isMine ? 'bg-primary text-white' : 'bg-white border'}`} style={{ maxWidth: '75%' }}>
                                         <div className="small fw-semibold mb-1">{isMine ? 'You' : item.senderRole}</div>
-                                        <div>{item.message}</div>
+                                        {item.message && <div>{item.message}</div>}
+                                        {item.audioUrl && (
+                                            <audio controls src={item.audioUrl} className="chat-audio-player mt-2">
+                                                Your browser does not support audio playback.
+                                            </audio>
+                                        )}
                                         <div className={`small mt-1 ${isMine ? 'text-white-50' : 'text-muted'}`}>
                                             {item.pending ? 'Sending...' : item.createdAt ? new Date(item.createdAt).toLocaleString() : ''}
                                         </div>
@@ -337,12 +417,30 @@ const MyBookings = () => {
                         )}
                     </div>
                     <Form onSubmit={sendChatMessage}>
+                        {voicePreviewUrl && (
+                            <div className="voice-preview mb-2">
+                                <audio controls src={voicePreviewUrl} className="chat-audio-player" />
+                                <Button type="button" size="sm" variant="outline-danger" onClick={clearVoicePreview} disabled={sendingMessage}>
+                                    <FiX />
+                                </Button>
+                            </div>
+                        )}
                         <div className="d-flex gap-2">
                             <Form.Control value={chatText} onChange={(e) => setChatText(e.target.value)} placeholder="Type your message" />
-                            <Button type="submit" disabled={sendingMessage || !chatText.trim()}>
+                            {isRecording ? (
+                                <Button type="button" variant="danger" onClick={stopRecording}>
+                                    <FiSquare />
+                                </Button>
+                            ) : (
+                                <Button type="button" variant="outline-primary" onClick={startRecording} disabled={sendingMessage}>
+                                    <FiMic />
+                                </Button>
+                            )}
+                            <Button type="submit" disabled={sendingMessage || (!chatText.trim() && !voiceBlob)}>
                                 <FiSend />
                             </Button>
                         </div>
+                        {isRecording && <div className="recording-hint mt-2">Recording voice message...</div>}
                     </Form>
                 </Modal.Body>
             </Modal>

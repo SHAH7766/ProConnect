@@ -17,10 +17,24 @@ const messageSchema = new mongoose.Schema({
     },
     message: {
         type: String,
-        required: true,
         trim: true,
         maxlength: 1000
+    },
+    audioUrl: {
+        type: String,
+        default: ''
+    },
+    audioPublicId: {
+        type: String,
+        default: ''
     }
 }, { timestamps: true })
+
+messageSchema.pre('validate', function (next) {
+    if (!this.message && !this.audioUrl) {
+        this.invalidate('message', 'Message text or voice message is required')
+    }
+    next()
+})
 
 export default mongoose.model('Message', messageSchema)

@@ -1,7 +1,7 @@
 import express from 'express'
 import { CreateBooking, DeleteBookingRequest, GetBookingMessages, GetLatestIncomingChatMessages, GetMyBookings, GetProviderDetails, ReviewBooking, SearchProviders, SendBookingMessage, UpdateBookingStatus } from "../Controllers/BookingController.js"
 import { VerifyToken } from "../Middleware/validator.js"
-import { upload } from "../Middleware/upload.js"
+import { upload, uploadAudio } from "../Middleware/upload.js"
 
 const BookingRouter = express.Router()
 
@@ -13,7 +13,7 @@ BookingRouter.get("/bookings/chat/latest", VerifyToken, GetLatestIncomingChatMes
 BookingRouter.delete("/bookings/:id", VerifyToken, DeleteBookingRequest)
 BookingRouter.put("/bookings/:id/status", VerifyToken, UpdateBookingStatus)
 BookingRouter.get("/bookings/:id/messages", VerifyToken, GetBookingMessages)
-BookingRouter.post("/bookings/:id/messages", VerifyToken, SendBookingMessage)
+BookingRouter.post("/bookings/:id/messages", VerifyToken, uploadAudio.single('voiceMessage'), SendBookingMessage)
 BookingRouter.post("/bookings/:id/review", VerifyToken, ReviewBooking)
 
 export default BookingRouter;

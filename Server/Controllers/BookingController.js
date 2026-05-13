@@ -4,7 +4,7 @@ import Message from "../Model/Message.js";
 import User from "../Model/User.js";
 import Review from "../Model/Review.js";
 import { sendBookingNotification } from "../utils/BookingNotification.js";
-import { uploadImageBuffer } from "../utils/Cloudinary.js";
+import { uploadAudioBuffer, uploadImageBuffer } from "../utils/Cloudinary.js";
 import { activeProviderFilter, isProviderActive } from "../utils/ProviderActivation.js";
 
 const DEFAULT_NEW_PROVIDER_RATING = 3.2;
@@ -280,7 +280,8 @@ export const GetLatestIncomingChatMessages = async (req, res) => {
                 bookingId: booking._id,
                 serviceCategory: booking.serviceCategory,
                 otherParty,
-                message: latestMessage.message,
+                message: latestMessage.message || 'Voice message',
+                audioUrl: latestMessage.audioUrl || '',
                 createdAt: latestMessage.createdAt
             };
         }));
@@ -374,7 +375,7 @@ export const GetBookingMessages = async (req, res) => {
 
 export const SendBookingMessage = async (req, res) => {
     try {
-        const { message } = req.body;
+        const { message = '' } = req.body;
         const booking = await Booking.findById(req.params.id);
 
         if (!booking) {
@@ -385,15 +386,26 @@ export const SendBookingMessage = async (req, res) => {
             return res.status(403).send({ Message: "Chat is available after provider accepts the booking", success: false });
         }
 
-        if (!message || !message.trim()) {
-            return res.status(400).send({ Message: "Message is required", success: false });
+        let audioUrl = '';
+        let audioPublicId = '';
+
+        if (req.file) {
+            const uploadedAudio = await uploadAudioBuffer(req.file.buffer);
+            audioUrl = uploadedAudio.secure_url;
+            audioPublicId = uploadedAudio.public_id;
+        }
+
+        if (!message.trim() && !audioUrl) {
+            return res.status(400).send({ Message: "Message or voice note is required", success: false });
         }
 
         const createdMessage = await Message.create({
             bookingId: booking._id,
             senderId: req.user.id,
             senderRole: req.user.role,
-            message: message.trim()
+            message: message.trim(),
+            audioUrl,
+            audioPublicId
         });
 
         return res.status(201).send({ Message: "Message sent", chatMessage: createdMessage, success: true });
