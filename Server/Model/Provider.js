@@ -26,7 +26,7 @@ const provider=new mongoose.Schema({
     },
     category:{
         type:String,
-        enum:['Plumber','Electrician'],
+        enum:['Plumber','Electronics','Electrician'],
         required:true
     },
     charges:{
@@ -57,6 +57,12 @@ const provider=new mongoose.Schema({
     ratingCount:{
         type:Number,
         default:0
+    },
+    completionRate:{
+        type:Number,
+        default:70,
+        min:0,
+        max:100
     },
     isActive:{
         type:Boolean,

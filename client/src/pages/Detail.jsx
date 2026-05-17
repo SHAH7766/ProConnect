@@ -12,6 +12,10 @@ const getTodayDateValue = () => {
   return `${year}-${month}-${day}`;
 };
 
+const formatCompletionRate = (completionRate) => (
+  completionRate === null || completionRate === undefined ? 'N/A' : `${completionRate}%`
+);
+
 const Detail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -206,7 +210,7 @@ const Detail = () => {
               <Col sm={6}>
                 <div className="border rounded-3 p-3 bg-white h-100">
                   <FiTrendingUp className="text-primary me-2" />
-                  <strong>{provider.completionRate}%</strong>
+                  <strong>{formatCompletionRate(provider.completionRate)}</strong>
                   <span className="text-muted ms-2">Completion</span>
                 </div>
               </Col>
@@ -222,13 +226,6 @@ const Detail = () => {
                   )}
                 </div>
               </Col>
-              <Col sm={6}>
-                <div className="border rounded-3 p-3 bg-white h-100">
-                  <FiMapPin className="text-danger me-2" />
-                  <strong>{provider.distance === null ? 'N/A' : `${provider.distance} km`}</strong>
-                  <span className="text-muted ms-2">Distance</span>
-                </div>
-              </Col>
             </Row>
 
             <h5 className="fw-bold">Skills</h5>
@@ -240,8 +237,7 @@ const Detail = () => {
 
             <h5 className="fw-bold">Review Summary</h5>
             <p className="text-muted mb-0">
-              {provider.ratingCount > 0 ? `${provider.ratingCount} customer review${provider.ratingCount === 1 ? '' : 's'} recorded. ` : 'No customer reviews yet. '}
-              {provider.jobsCompleted} jobs completed.
+              {provider.ratingCount > 0 ? `${provider.ratingCount} customer review${provider.ratingCount === 1 ? '' : 's'} recorded.` : 'No customer reviews yet.'}
             </p>
           </div>
         </Col>

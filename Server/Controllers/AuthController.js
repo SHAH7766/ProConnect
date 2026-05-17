@@ -66,7 +66,8 @@ export const RegisterProvider = async (req, res) => {
     let role = ""
     try {
         const { name, email, password, experience, category, charges, phone = '' } = req.body
-        if (!category || !['Plumber', 'Electrician'].includes(category))
+        const normalizedCategory = category === 'Electrician' ? 'Electronics' : category
+        if (!normalizedCategory || !['Plumber', 'Electronics'].includes(normalizedCategory))
             return res.status(400).send({ Message: "Please select a valid provider category", success: false })
         const providerCharges = Number(charges)
         if (!Number.isFinite(providerCharges) || providerCharges <= 0)
@@ -83,8 +84,9 @@ export const RegisterProvider = async (req, res) => {
             password: hashPassword,
             role: 'provider',
             experience,
-            category,
+            category: normalizedCategory,
             charges: providerCharges,
+            completionRate: 70,
             isActive: false
         })
         newProvider = await newProvider.save()

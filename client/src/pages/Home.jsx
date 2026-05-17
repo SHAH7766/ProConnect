@@ -19,7 +19,7 @@ const Home = () => {
                 Connect with top-tier providers instantly.
               </h1>
               <p className="hero-subtitle animate-up delay-2">
-                ProConnect helps customers discover verified plumbers and electricians, compare useful service signals, and send requests with confidence.
+                ProConnect helps customers discover verified plumbers and electronics providers, compare useful service signals, and send requests with confidence.
               </p>
               <div className="d-flex gap-3 flex-wrap animate-up delay-3">
                 <Link to="/providers" className="btn btn-primary-custom d-flex align-items-center gap-2">

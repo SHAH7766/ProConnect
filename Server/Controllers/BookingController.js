@@ -36,14 +36,14 @@ const calculateDistanceKm = (fromLat, fromLng, toLat, toLng) => {
     return Number((earthRadiusKm * c).toFixed(1));
 };
 
-const getProviderBookingStats = async (providerId) => {
+const getProviderBookingStats = async (providerId, defaultCompletionRate = DEFAULT_NEW_PROVIDER_COMPLETION_RATE) => {
     const bookings = await Booking.find({ providerId }).select('status');
     const completed = bookings.filter((booking) => booking.status === 'Completed').length;
     const decided = bookings.filter((booking) => ['Completed', 'Cancelled', 'Disputed'].includes(booking.status)).length;
 
     return {
         jobsCompleted: completed,
-        completionRate: decided > 0 ? Math.round((completed / decided) * 100) : DEFAULT_NEW_PROVIDER_COMPLETION_RATE
+        completionRate: decided > 0 ? Math.round((completed / decided) * 100) : defaultCompletionRate
     };
 };
 
@@ -54,6 +54,10 @@ const calculateLocationAdjustedCharges = (baseCharges, distance) => {
 
     const travelFee = Math.ceil(Number(distance) * TRAVEL_RATE_PER_KM);
     return Math.round(base + travelFee);
+};
+
+const normalizeCategory = (category = '') => {
+    return category === 'Electrician' ? 'Electronics' : category;
 };
 
 const isPastDate = (value) => {
@@ -68,8 +72,11 @@ const isPastDate = (value) => {
 };
 
 const buildProviderStats = async (provider, customerLocation = {}) => {
-    const category = provider.category || 'Plumber';
-    const { jobsCompleted, completionRate } = await getProviderBookingStats(provider._id);
+    const category = normalizeCategory(provider.category || 'Plumber');
+    const defaultCompletionRate = Number.isFinite(Number(provider.completionRate))
+        ? Number(provider.completionRate)
+        : DEFAULT_NEW_PROVIDER_COMPLETION_RATE;
+    const { jobsCompleted, completionRate } = await getProviderBookingStats(provider._id, defaultCompletionRate);
     const distance = calculateDistanceKm(
         customerLocation.latitude,
         customerLocation.longitude,
@@ -81,7 +88,7 @@ const buildProviderStats = async (provider, customerLocation = {}) => {
     const travelFee = Math.max(calculatedCharges - baseCharges, 0);
     const skills = category === 'Plumber'
         ? ['Leak repair', 'Pipe fitting', 'Drain cleaning']
-        : ['Wiring', 'Fault repair', 'Switch boards'];
+        : ['Electronics repair', 'Fault diagnosis', 'Appliance service'];
 
     return {
         _id: provider._id,
@@ -111,7 +118,8 @@ export const SearchProviders = async (req, res) => {
         let result = await Promise.all(providers.map((item) => buildProviderStats(item, { latitude, longitude })));
 
         if (category) {
-            result = result.filter((item) => item.category.toLowerCase() === category.toLowerCase());
+            const requestedCategory = normalizeCategory(category).toLowerCase();
+            result = result.filter((item) => item.category.toLowerCase() === requestedCategory);
         }
         if (maxCharges) {
             result = result.filter((item) => item.charges <= Number(maxCharges));
@@ -120,7 +128,7 @@ export const SearchProviders = async (req, res) => {
             result = result.filter((item) => item.distance !== null && item.distance <= Number(maxDistance));
         }
         if (minCompletionRate) {
-            result = result.filter((item) => item.completionRate >= Number(minCompletionRate));
+            result = result.filter((item) => item.completionRate !== null && item.completionRate >= Number(minCompletionRate));
         }
 
         return res.status(200).send(result);

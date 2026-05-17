@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Container, Row, Col, Card, Badge, Spinner, Alert, Form } from 'react-bootstrap';
+import { Container, Row, Col, Card, Badge, Alert, Form } from 'react-bootstrap';
 import axios from 'axios';
 import { FiCpu, FiDollarSign, FiSearch, FiStar, FiTrendingUp, FiUserCheck } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
+
+const formatCompletionRate = (completionRate) => (
+  completionRate === null || completionRate === undefined ? 'N/A' : `${completionRate}%`
+);
 
 const Providers = () => {
   const [providers, setProviders] = useState([]);
@@ -10,10 +14,8 @@ const Providers = () => {
   const [aiLoading, setAiLoading] = useState(false);
   const [error, setError] = useState(null);
   const [recommendations, setRecommendations] = useState([]);
-  const [recommendationSource, setRecommendationSource] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [categoryReason, setCategoryReason] = useState('');
-  const [categorySource, setCategorySource] = useState('');
   const [userNeed, setUserNeed] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
 
@@ -52,7 +54,6 @@ const Providers = () => {
     });
 
     setRecommendations(data.recommendations || []);
-    setRecommendationSource(data.source || '');
   };
 
   useEffect(() => {
@@ -63,8 +64,6 @@ const Providers = () => {
       setRecommendations([]);
       setSelectedCategory('');
       setCategoryReason('');
-      setCategorySource('');
-      setRecommendationSource('');
       setHasSearched(false);
       setError(null);
       return;
@@ -89,18 +88,22 @@ const Providers = () => {
       setHasSearched(true);
       setProviders([]);
       setRecommendations([]);
-      setRecommendationSource('');
       setCategoryReason('');
-      setCategorySource('');
 
       const { data: categoryData } = await axios.post(`${baseURL}/api/detectcategory`, {
         problem: problemText
       });
 
+      if (!categoryData.success || categoryData.unsupported || !categoryData.category) {
+        setSelectedCategory('');
+        setCategoryReason(categoryData.reason || categoryData.Message || 'This issue does not match the available service categories.');
+        setError(categoryData.reason || categoryData.Message || 'This issue does not match the available service categories.');
+        return;
+      }
+
       const detectedCategory = categoryData.category;
       setSelectedCategory(detectedCategory);
       setCategoryReason(categoryData.reason || '');
-      setCategorySource(categoryData.source || '');
 
       const providerList = await fetchProvidersByCategory(detectedCategory);
       setProviders(providerList);
@@ -150,9 +153,6 @@ const Providers = () => {
                   <Alert variant="info" className="mb-0">
                     <strong>AI selected: {selectedCategory}</strong>
                     <div className="small mt-1">{categoryReason}</div>
-                    <Badge bg={categorySource === 'gemini' ? 'primary' : 'secondary'} className="mt-2">
-                      {categorySource === 'groq' ? 'Groq AI' : categorySource === 'gemini' ? 'Gemini AI' : 'Smart fallback'}
-                    </Badge>
                   </Alert>
                 </Col>
               )}
@@ -169,44 +169,7 @@ const Providers = () => {
 
         {error && <Alert variant="danger" className="text-center">{error}</Alert>}
 
-        {recommendations.length > 0 && (
-          <div className="glass-card mb-4">
-            <div className="d-flex justify-content-between align-items-center gap-3 flex-wrap mb-3">
-              <div>
-                <h4 className="fw-bold mb-1 d-flex align-items-center gap-2">
-                  <FiCpu className="text-primary" />
-                  AI Recommendations
-                </h4>
-                <p className="text-muted mb-0">
-                  AI detected the category and ranked providers using rating, completion rate, charges, and your need.
-                </p>
-              </div>
-              <Badge bg={recommendationSource === 'gemini' ? 'primary' : 'secondary'}>
-                {recommendationSource === 'groq' ? 'Groq AI' : recommendationSource === 'gemini' ? 'Gemini AI' : 'Smart fallback'}
-              </Badge>
-            </div>
-            <Row className="g-3">
-              {recommendations.map((item, index) => (
-                <Col md={4} key={item.providerId || item.name}>
-                  <div className="border rounded-3 p-3 h-100 bg-white">
-                    <div className="d-flex justify-content-between align-items-center mb-2">
-                      <strong>#{index + 1} {item.name}</strong>
-                      <Badge bg="success">{item.score}</Badge>
-                    </div>
-                    <p className="text-muted small mb-0">{item.reason}</p>
-                  </div>
-                </Col>
-              ))}
-            </Row>
-          </div>
-        )}
-
-        {loading ? (
-          <div className="text-center py-5">
-            <Spinner animation="border" variant="primary" />
-            <p className="mt-2 text-muted">AI is matching your request...</p>
-          </div>
-        ) : (
+        {!loading && (
           <Row className="g-4 animate-up delay-1">
             {providers.length > 0 ? (
               providers.map((provider) => (
@@ -242,7 +205,7 @@ const Providers = () => {
                         </p>
                         <p className="mb-0 d-flex align-items-center gap-2 text-muted small">
                           <FiTrendingUp className="text-primary" />
-                          <span>Completion: <strong>{provider.completionRate}%</strong></span>
+                          <span>Completion: <strong>{formatCompletionRate(provider.completionRate)}</strong></span>
                         </p>
                       </div>
                     </Card.Body>
@@ -266,7 +229,7 @@ const Providers = () => {
               <div className="text-center py-5 text-muted">
                 <FiSearch size={34} className="mb-3" />
                 <h4 className="fw-bold">Describe your problem to begin.</h4>
-                <p>AI will decide whether you need a plumber or electrician.</p>
+                <p>AI will decide whether you need a plumber or electronics provider.</p>
               </div>
             )}
           </Row>

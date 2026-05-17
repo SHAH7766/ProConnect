@@ -10,13 +10,17 @@ const scoreProvider = (provider) => {
     return Number(((rating * 22) + (completionRate * 0.55) - (charges * 0.004) - (distance * 1.7)).toFixed(2));
 };
 
+const formatCompletionRate = (completionRate) => (
+    completionRate === null || completionRate === undefined ? 'no completion history yet' : `${completionRate}% completion rate`
+);
+
 const fallbackRecommendations = (providers) => {
     return [...providers]
         .map((provider) => ({
             providerId: provider._id,
             name: provider.name,
             score: scoreProvider(provider),
-            reason: `${provider.name} is a strong match because of ${provider.rating} rating, ${provider.completionRate}% completion rate, Rs. ${provider.charges} charges, and ${provider.distance} km distance.`
+            reason: `${provider.name} is a strong match because of ${provider.rating} rating, ${formatCompletionRate(provider.completionRate)}, Rs. ${provider.charges} charges, and ${provider.distance} km distance.`
         }))
         .sort((a, b) => b.score - a.score)
         .slice(0, 3);
@@ -123,25 +127,31 @@ Each item must use this shape:
 const fallbackCategory = (problem = "") => {
     const text = problem.toLowerCase();
     const plumberWords = ['pipe', 'leak', 'water', 'tap', 'sink', 'drain', 'toilet', 'flush', 'plumbing', 'shower'];
-    const electricianWords = ['electric', 'wire', 'wiring', 'switch', 'light', 'fan', 'socket', 'breaker', 'voltage', 'current'];
+    const electronicsWords = ['electric', 'electronics', 'wire', 'wiring', 'switch', 'light', 'fan', 'socket', 'breaker', 'voltage', 'current', 'appliance', 'tv', 'fridge', 'washing machine'];
 
     const plumberScore = plumberWords.filter((word) => text.includes(word)).length;
-    const electricianScore = electricianWords.filter((word) => text.includes(word)).length;
+    const electronicsScore = electronicsWords.filter((word) => text.includes(word)).length;
 
-    if (electricianScore > plumberScore) {
+    if (electronicsScore > plumberScore) {
         return {
-            category: 'Electrician',
+            category: 'Electronics',
             confidence: 72,
-            reason: 'Your problem sounds related to electrical wiring, switches, lights, or power.'
+            reason: 'Your problem sounds related to electronics, appliances, wiring, switches, lights, or power.'
+        };
+    }
+
+    if (plumberScore === 0) {
+        return {
+            category: null,
+            confidence: 0,
+            reason: 'This issue does not match the available service categories: Electronics or Plumber.'
         };
     }
 
     return {
         category: 'Plumber',
-        confidence: plumberScore > 0 ? 72 : 55,
-        reason: plumberScore > 0
-            ? 'Your problem sounds related to water, pipes, drains, or plumbing fixtures.'
-            : 'Not enough detail was provided, so plumber is selected as the closest default category.'
+        confidence: 72,
+        reason: 'Your problem sounds related to water, pipes, drains, or plumbing fixtures.'
     };
 };
 
@@ -154,7 +164,8 @@ export const DetectServiceCategory = async (req, res) => {
         }
 
         const prompt = `
-Classify this home service problem into exactly one category: Plumber or Electrician.
+Classify this home service problem into one of these categories: Plumber or Electronics.
+If the problem is not related to plumbing or electronics/appliances/electrical work, return null for category.
 
 Problem:
 "${problem}"
@@ -174,7 +185,23 @@ Shape:
             const start = jsonText.indexOf('{');
             const end = jsonText.lastIndexOf('}');
             const parsed = JSON.parse(jsonText.slice(start, end + 1));
-            const category = parsed.category === 'Electrician' ? 'Electrician' : 'Plumber';
+            const normalizedCategory = String(parsed.category || '').toLowerCase();
+            const category = normalizedCategory === 'plumber'
+                ? 'Plumber'
+                : ['electronics', 'electrician', 'electrical'].includes(normalizedCategory)
+                    ? 'Electronics'
+                    : null;
+
+            if (!category) {
+                return res.send({
+                    category: null,
+                    confidence: Number(parsed.confidence || 0),
+                    reason: parsed.reason || 'This issue does not match the available service categories: Electronics or Plumber.',
+                    source: aiResult.source,
+                    unsupported: true,
+                    success: false
+                });
+            }
 
             return res.send({
                 category,
@@ -185,10 +212,12 @@ Shape:
             });
         } catch (aiError) {
             console.log("AI category fallback:", aiError.message);
+            const fallback = fallbackCategory(problem);
             return res.send({
-                ...fallbackCategory(problem),
+                ...fallback,
                 source: 'fallback',
-                success: true
+                unsupported: !fallback.category,
+                success: Boolean(fallback.category)
             });
         }
     } catch (error) {

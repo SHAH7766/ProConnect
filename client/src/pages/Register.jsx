@@ -142,7 +142,7 @@ const Register = () => {
                   <>
                     <Form.Select className="mb-3" name="category" value={formData.category} onChange={handleChange} required>
                       <option value="">Select provider category</option>
-                      <option value="Electrician">Electrician</option>
+                      <option value="Electronics">Electronics</option>
                       <option value="Plumber">Plumber</option>
                     </Form.Select>
 
