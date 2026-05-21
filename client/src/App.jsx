@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { Navigate, Routes, Route, useNavigate } from 'react-router-dom';
 import Navigation from './components/Navigation';
 import Home from './pages/Home';
@@ -12,6 +12,7 @@ import MyBookings from './pages/MyBookings';
 import Detail from './pages/Detail';
 import Complain from './pages/Complain';
 import AllComplains from './pages/AllComplains';
+import PaymentResult from './pages/PaymentResult';
 import { getTokenExpiration } from './Auth/LogoutHandler.js';
 import ForgotPasswordForm from './pages/ForgotPasswordForm.jsx';
 import ResetPassword from './pages/ResetPassword.jsx';
@@ -37,6 +38,12 @@ const HomeRoute = () => {
 
 function App() {
   const navigate = useNavigate();
+  const logout = useCallback(() => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
+    navigate("/");
+  }, [navigate]);
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -51,13 +58,8 @@ function App() {
     }, expiryTime - currentTime);
 
     return () => clearTimeout(timeout);
-  }, []);
+  }, [logout]);
 
-  const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("role");
-    navigate("/");
-  };
   return (
     <>
       <Navigation />
@@ -71,6 +73,8 @@ function App() {
           <Route path='/profile' element={<Profile />} />
           <Route path='/edit-profile' element={<EditProfile />} />
           <Route path='/my-bookings' element={<MyBookings />} />
+          <Route path='/payment-success' element={<PaymentResult />} />
+          <Route path='/payment-cancel' element={<PaymentResult cancelled />} />
           <Route path='/detail/:id' element={<Detail />} />
           <Route path='/complain' element={
             <RoleRoute allowedRoles={['user', 'admin']}>

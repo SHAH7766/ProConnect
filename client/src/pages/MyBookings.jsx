@@ -107,8 +107,15 @@ const MyBookings = () => {
         }
     };
 
-    const markBookingPaid = (bookingId) => {
-        updatePaymentStatus(bookingId, 'Paid', "Payment completed. Chat is now available.");
+    const startSafepayCheckout = async (bookingId) => {
+        try {
+            const { data } = await axios.post(`${baseURL}/api/bookings/${bookingId}/safepay/checkout`, {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            window.location.href = data.checkoutUrl;
+        } catch (err) {
+            setToast({ show: true, message: err.response?.data?.Message || "Unable to start Safepay checkout.", type: 'danger' });
+        }
     };
 
     const releaseBookingPayment = (bookingId) => {
@@ -382,7 +389,7 @@ const MyBookings = () => {
                                             <Button size="sm" variant="success" onClick={() => updateBookingStatus(booking._id, 'Completed')}>Complete</Button>
                                         )}
                                         {profile?.role === 'user' && booking.status === 'Accepted' && booking.paymentStatus !== 'Paid' && (
-                                            <Button size="sm" variant="warning" onClick={() => markBookingPaid(booking._id)}>
+                                            <Button size="sm" variant="warning" onClick={() => startSafepayCheckout(booking._id)}>
                                                 Pay Now
                                             </Button>
                                         )}

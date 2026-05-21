@@ -43,6 +43,11 @@ const bookingSchema = new mongoose.Schema({
     enum: ['Pending', 'Paid', 'Released', 'Refunded'],
     default: 'Pending'
   },
+  safepay: {
+    tracker: String,
+    state: String,
+    paidAt: Date
+  },
   status: {
     type: String,
     enum: ['Requested', 'Accepted', 'In-Progress', 'Completed', 'Cancelled', 'Disputed'],

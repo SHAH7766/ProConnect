@@ -6,11 +6,16 @@ import Review from "../Model/Review.js";
 import { sendBookingNotification } from "../utils/BookingNotification.js";
 import { uploadAudioBuffer, uploadImageBuffer } from "../utils/Cloudinary.js";
 import { activeProviderFilter, isProviderActive } from "../utils/ProviderActivation.js";
+import Safepay from "@sfpy/node-core";
 
 const DEFAULT_NEW_PROVIDER_RATING = 3.2;
 const DEFAULT_NEW_PROVIDER_COMPLETION_RATE = 70;
 const DEFAULT_BASE_CHARGES = 1000;
 const TRAVEL_RATE_PER_KM = 40;
+const SAFEPAY_ENV = process.env.SAFEPAY_ENV || 'sandbox';
+const SAFEPAY_HOST = SAFEPAY_ENV === 'production'
+    ? 'https://api.getsafepay.com'
+    : 'https://sandbox.api.getsafepay.com';
 
 const toNumberOrNull = (value) => {
     const number = Number(value);
@@ -55,6 +60,21 @@ const calculateLocationAdjustedCharges = (baseCharges, distance) => {
     const travelFee = Math.ceil(Number(distance) * TRAVEL_RATE_PER_KM);
     return Math.round(base + travelFee);
 };
+
+const getSafepayClient = () => {
+    if (!process.env.SAFEPAY_SECRET_KEY || !process.env.SAFEPAY_API_KEY) {
+        throw new Error("Safepay keys are not configured");
+    }
+
+    return new Safepay(process.env.SAFEPAY_SECRET_KEY, {
+        authType: 'secret',
+        host: SAFEPAY_HOST
+    });
+};
+
+const getSafepayTrackerToken = (response) => response?.data?.tracker?.token || response?.tracker?.token || response?.data?.token;
+const getSafepayPassportToken = (response) => response?.data?.token || response?.data || response?.token;
+const getSafepayTrackerState = (response) => response?.data?.state || response?.state;
 
 const normalizeCategory = (category = '') => {
     return category === 'Electrician' ? 'Electronics' : category;
@@ -327,6 +347,9 @@ export const UpdateBookingStatus = async (req, res) => {
             if (!isCustomerOwner && req.user.role !== 'admin') {
                 return res.status(403).send({ Message: "Only the customer can update payment status", success: false });
             }
+            if (paymentStatus === 'Paid' && req.user.role !== 'admin') {
+                return res.status(400).send({ Message: "Please complete payment through Safepay", success: false });
+            }
             if (paymentStatus === 'Paid' && booking.status !== 'Accepted') {
                 return res.status(400).send({ Message: "Payment is available after provider accepts the booking", success: false });
             }
@@ -346,6 +369,121 @@ export const UpdateBookingStatus = async (req, res) => {
     } catch (error) {
         console.log(error);
         return res.status(500).send({ Message: "Internal server error", success: false });
+    }
+};
+
+export const CreateSafepayCheckout = async (req, res) => {
+    try {
+        const booking = await Booking.findById(req.params.id)
+            .populate('customerId', 'name email')
+            .populate('providerId', 'name');
+
+        if (!booking) {
+            return res.status(404).send({ Message: "Booking not found", success: false });
+        }
+
+        if (booking.customerId?._id?.toString() !== req.user.id) {
+            return res.status(403).send({ Message: "Only the customer can pay for this booking", success: false });
+        }
+
+        if (booking.status !== 'Accepted') {
+            return res.status(400).send({ Message: "Payment is available after provider accepts the booking", success: false });
+        }
+
+        if (booking.paymentStatus === 'Paid') {
+            return res.status(400).send({ Message: "This booking is already paid", success: false });
+        }
+
+        const safepay = getSafepayClient();
+        const amount = Math.round(Number(booking.charges || 0) * 100);
+        if (!Number.isFinite(amount) || amount <= 0) {
+            return res.status(400).send({ Message: "Booking charges are missing", success: false });
+        }
+
+        const session = await safepay.payments.session.setup({
+            merchant_api_key: process.env.SAFEPAY_API_KEY,
+            intent: 'CYBERSOURCE',
+            mode: 'payment',
+            entry_mode: 'raw',
+            currency: 'PKR',
+            amount,
+            metadata: {
+                order_id: booking._id.toString(),
+                source: 'proconnect'
+            }
+        });
+        const tracker = getSafepayTrackerToken(session);
+
+        if (!tracker) {
+            return res.status(502).send({ Message: "Safepay did not return a tracker", success: false });
+        }
+
+        const passport = await safepay.client.passport.create();
+        const tbt = getSafepayPassportToken(passport);
+        const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+        const checkoutUrl = safepay.checkout.createCheckoutUrl({
+            env: SAFEPAY_ENV,
+            tracker,
+            tbt,
+            source: 'hosted',
+            order_id: booking._id.toString(),
+            redirect_url: `${clientUrl}/payment-success`,
+            cancel_url: `${clientUrl}/payment-cancel`
+        });
+
+        booking.safepay = { tracker, state: 'TRACKER_CREATED' };
+        await booking.save();
+
+        return res.status(200).send({ checkoutUrl, tracker, success: true });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).send({ Message: error.message || "Unable to start Safepay checkout", success: false });
+    }
+};
+
+export const ConfirmSafepayPayment = async (req, res) => {
+    try {
+        const { tracker } = req.query;
+        if (!tracker) {
+            return res.status(400).send({ Message: "Safepay tracker is required", success: false });
+        }
+
+        const booking = await Booking.findOne({ 'safepay.tracker': tracker });
+        if (!booking) {
+            return res.status(404).send({ Message: "Booking not found for this payment", success: false });
+        }
+
+        if (booking.customerId.toString() !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).send({ Message: "Not allowed to confirm this payment", success: false });
+        }
+
+        const safepay = getSafepayClient();
+        const response = await safepay.reporter.payments.fetch(tracker);
+        const state = getSafepayTrackerState(response);
+
+        booking.safepay = {
+            ...booking.safepay,
+            tracker,
+            state
+        };
+
+        if (state === 'TRACKER_ENDED') {
+            booking.paymentStatus = 'Paid';
+            booking.safepay.paidAt = new Date();
+        }
+
+        await booking.save();
+
+        return res.status(200).send({
+            Message: state === 'TRACKER_ENDED' ? "Payment confirmed. Chat is now available." : "Payment is still processing.",
+            booking,
+            paymentConfirmed: state === 'TRACKER_ENDED',
+            state,
+            success: true
+        });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).send({ Message: error.message || "Unable to confirm Safepay payment", success: false });
     }
 };
 
