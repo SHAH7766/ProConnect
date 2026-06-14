@@ -2,13 +2,14 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Alert, Button, Container, Spinner } from 'react-bootstrap';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../config/api';
 
 const PaymentResult = ({ cancelled = false }) => {
     const [status, setStatus] = useState(cancelled ? 'cancelled' : 'checking');
     const [message, setMessage] = useState(cancelled ? 'Payment was cancelled.' : 'Confirming your payment...');
     const location = useLocation();
     const navigate = useNavigate();
-    const baseURL = import.meta.env.VITE_APP_URL;
+    const baseURL = API_BASE_URL;
 
     useEffect(() => {
         if (cancelled) return;

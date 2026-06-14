@@ -3,6 +3,7 @@ import { Container, Row, Col, Card, Badge, Alert, Form } from 'react-bootstrap';
 import axios from 'axios';
 import { FiCpu, FiDollarSign, FiSearch, FiStar, FiTrendingUp, FiUserCheck } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../config/api';
 
 const formatCompletionRate = (completionRate) => (
   completionRate === null || completionRate === undefined ? 'N/A' : `${completionRate}%`
@@ -21,7 +22,7 @@ const Providers = () => {
 
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
-  const baseURL = import.meta.env.VITE_APP_URL;
+  const baseURL = API_BASE_URL;
 
   useEffect(() => {
     setLoading(false);
@@ -206,6 +207,9 @@ const Providers = () => {
                         <p className="mb-0 d-flex align-items-center gap-2 text-muted small">
                           <FiTrendingUp className="text-primary" />
                           <span>Completion: <strong>{formatCompletionRate(provider.completionRate)}</strong></span>
+                        </p>
+                        <p className="mb-0 mt-3 text-muted small">
+                          <strong>Review summary:</strong> {provider.reviewSummary || 'No customer reviews yet.'}
                         </p>
                       </div>
                     </Card.Body>

@@ -3,6 +3,7 @@ import { Container, Table, Spinner, Alert, Button, Badge, Toast, ToastContainer 
 import axios from 'axios';
 import { FiCheckCircle, FiEdit, FiTrash2 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../config/api';
 
 const Allusers = () => {
   const [users, setUsers] = useState([]);
@@ -13,7 +14,7 @@ const Allusers = () => {
 
   const userRole = localStorage.getItem('role');
   const token = localStorage.getItem('token');
-const baseURL = import.meta.env.VITE_APP_URL;
+  const baseURL = API_BASE_URL;
   useEffect(() => {
     // Redirect if not admin
     if (userRole !== 'admin') {
@@ -25,10 +26,6 @@ const baseURL = import.meta.env.VITE_APP_URL;
 
   const fetchUsers = async () => {
     try {
-      // 1. Get the base URL from your Vercel Environment Variable
-      const baseURL = import.meta.env.VITE_APP_URL;
-
-      // 2. Combine with your getall endpoint
       const { data } = await axios.get(`${baseURL}/api/getall`, {
         headers: { Authorization: `Bearer ${token}` }
       });

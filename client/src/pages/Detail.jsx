@@ -3,6 +3,7 @@ import axios from 'axios'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Alert, Badge, Button, Col, Container, Form, Row, Spinner, Toast, ToastContainer } from 'react-bootstrap'
 import { FiCalendar, FiCheckCircle, FiDollarSign, FiEdit3, FiImage, FiMapPin, FiNavigation, FiSend, FiStar, FiTrendingUp, FiX } from 'react-icons/fi'
+import { API_BASE_URL } from '../config/api'
 
 const getTodayDateValue = () => {
   const today = new Date();
@@ -19,7 +20,7 @@ const formatCompletionRate = (completionRate) => (
 const Detail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const baseURL = import.meta.env.VITE_APP_URL;
+  const baseURL = API_BASE_URL;
   const token = localStorage.getItem('token');
   const todayDateValue = getTodayDateValue();
   const [provider, setProvider] = useState(null);
@@ -236,9 +237,22 @@ const Detail = () => {
             </div>
 
             <h5 className="fw-bold">Review Summary</h5>
-            <p className="text-muted mb-0">
-              {provider.ratingCount > 0 ? `${provider.ratingCount} customer review${provider.ratingCount === 1 ? '' : 's'} recorded.` : 'No customer reviews yet.'}
+            <p className="text-muted mb-3">
+              {provider.reviewSummary || (provider.ratingCount > 0 ? `${provider.ratingCount} customer review${provider.ratingCount === 1 ? '' : 's'} recorded.` : 'No customer reviews yet.')}
             </p>
+            {provider.recentReviews?.length > 0 && (
+              <div className="d-flex flex-column gap-2">
+                {provider.recentReviews.map((review) => (
+                  <div className="border rounded-3 p-3 bg-white" key={review._id}>
+                    <div className="d-flex justify-content-between align-items-center mb-2">
+                      <strong>{review.customerName}</strong>
+                      <span className="text-warning fw-semibold">{review.rating}/5</span>
+                    </div>
+                    {review.comment && <p className="text-muted small mb-0">{review.comment}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </Col>
 

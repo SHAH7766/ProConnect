@@ -10,6 +10,7 @@ import {
 } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { API_BASE_URL } from '../config/api';
 
 const ForgotPasswordForm = () => {
   const [step, setStep] = useState(1);
@@ -35,7 +36,7 @@ const ForgotPasswordForm = () => {
   }, [password]);
 
   const isPasswordValid = Object.values(passwordCriteria).every(Boolean);
-  const baseURL = import.meta.env.VITE_APP_URL;
+  const baseURL = API_BASE_URL;
   // --- HANDLER: SEND RESET LINK ---
   const handleSendLink = async () => {
     if (!email) return setToast({ show: true, message: "Email is required", type: "danger" });

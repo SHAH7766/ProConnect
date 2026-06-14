@@ -3,6 +3,7 @@ import Provider from "../Model/Provider.js";
 import Message from "../Model/Message.js";
 import User from "../Model/User.js";
 import Review from "../Model/Review.js";
+import mongoose from "mongoose";
 import { sendBookingNotification } from "../utils/BookingNotification.js";
 import { uploadAudioBuffer, uploadImageBuffer } from "../utils/Cloudinary.js";
 import { activeProviderFilter, isProviderActive } from "../utils/ProviderActivation.js";
@@ -61,6 +62,40 @@ const calculateLocationAdjustedCharges = (baseCharges, distance) => {
     return Math.round(base + travelFee);
 };
 
+const buildProviderReviewSummary = async (providerId) => {
+    const reviews = await Review.find({ providerId })
+        .populate('customerId', 'name')
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .select('rating comment customerId createdAt');
+
+    if (reviews.length === 0) {
+        return {
+            reviewSummary: 'No customer reviews yet.',
+            recentReviews: []
+        };
+    }
+
+    const comments = reviews
+        .map((review) => review.comment?.trim())
+        .filter(Boolean);
+    const average = reviews.reduce((total, review) => total + Number(review.rating || 0), 0) / reviews.length;
+    const reviewSummary = comments.length > 0
+        ? `Recent customers rated this provider ${average.toFixed(1)}/5 and mentioned: ${comments.slice(0, 2).join(' ')}`
+        : `Recent customers rated this provider ${average.toFixed(1)}/5.`;
+
+    return {
+        reviewSummary,
+        recentReviews: reviews.map((review) => ({
+            _id: review._id,
+            rating: review.rating,
+            comment: review.comment,
+            customerName: review.customerId?.name || 'Customer',
+            createdAt: review.createdAt
+        }))
+    };
+};
+
 const getSafepayClient = () => {
     if (!process.env.SAFEPAY_SECRET_KEY || !process.env.SAFEPAY_API_KEY) {
         throw new Error("Safepay keys are not configured");
@@ -109,6 +144,7 @@ const buildProviderStats = async (provider, customerLocation = {}) => {
     const skills = category === 'Plumber'
         ? ['Leak repair', 'Pipe fitting', 'Drain cleaning']
         : ['Electronics repair', 'Fault diagnosis', 'Appliance service'];
+    const { reviewSummary, recentReviews } = await buildProviderReviewSummary(provider._id);
 
     return {
         _id: provider._id,
@@ -128,6 +164,8 @@ const buildProviderStats = async (provider, customerLocation = {}) => {
         location: provider.location || {},
         skills,
         summary: `${provider.name} is a verified ${category.toLowerCase()} with ${provider.experience} years of experience, Rs. ${calculatedCharges} estimated charges, and ${completionRate}% completion rate.`,
+        reviewSummary,
+        recentReviews,
     };
 };
 
@@ -254,9 +292,11 @@ export const CreateBooking = async (req, res) => {
 
 export const GetMyBookings = async (req, res) => {
     try {
-        const filter = req.user.role === 'provider'
-            ? { providerId: req.user.id }
-            : { customerId: req.user.id };
+        const filter = req.user.role === 'admin'
+            ? {}
+            : req.user.role === 'provider'
+                ? { providerId: req.user.id }
+                : { customerId: req.user.id };
 
         const bookings = await Booking.find(filter)
             .populate('providerId', 'name email phone experience')
@@ -266,10 +306,20 @@ export const GetMyBookings = async (req, res) => {
         const bookingIds = bookings.map((booking) => booking._id);
         const reviews = await Review.find({ bookingId: { $in: bookingIds } }).select('bookingId');
         const reviewedBookingIds = new Set(reviews.map((review) => review.bookingId.toString()));
-        const result = bookings.map((booking) => ({
-            ...booking.toObject(),
-            hasReview: reviewedBookingIds.has(booking._id.toString())
-        }));
+        const result = bookings.map((booking) => {
+            const bookingObject = booking.toObject();
+            if (req.user.role !== 'admin' && bookingObject.paymentRelease?.providerAccountNumber) {
+                bookingObject.paymentRelease = {
+                    ...bookingObject.paymentRelease,
+                    providerAccountNumber: undefined
+                };
+            }
+
+            return {
+                ...bookingObject,
+                hasReview: reviewedBookingIds.has(booking._id.toString())
+            };
+        });
 
         return res.status(200).send(result);
     } catch (error) {
@@ -342,23 +392,52 @@ export const UpdateBookingStatus = async (req, res) => {
             return res.status(400).send({ Message: "Payment must be completed before work can start or complete", success: false });
         }
 
+        if (status === 'Completed') {
+            return res.status(400).send({ Message: "Please submit completion proof photo to complete the work", success: false });
+        }
+
+        if (status && ['Accepted', 'In-Progress'].includes(status) && !isProviderOwner && req.user.role !== 'admin') {
+            return res.status(403).send({ Message: "Only the assigned provider can update work status", success: false });
+        }
+
         if (status) booking.status = status;
         if (paymentStatus) {
-            if (!isCustomerOwner && req.user.role !== 'admin') {
-                return res.status(403).send({ Message: "Only the customer can update payment status", success: false });
-            }
-            if (paymentStatus === 'Paid' && req.user.role !== 'admin') {
-                return res.status(400).send({ Message: "Please complete payment through Safepay", success: false });
-            }
-            if (paymentStatus === 'Paid' && booking.status !== 'Accepted') {
-                return res.status(400).send({ Message: "Payment is available after provider accepts the booking", success: false });
-            }
             if (paymentStatus === 'Released') {
+                const providerAccountNumber = String(req.body.providerAccountNumber || '').trim();
+
+                if (req.user.role !== 'admin') {
+                    return res.status(403).send({ Message: "Only admin can release payment after reviewing completed work", success: false });
+                }
                 if (booking.status !== 'Completed') {
                     return res.status(400).send({ Message: "Payment can be released after the work is completed", success: false });
                 }
                 if (booking.paymentStatus !== 'Paid') {
                     return res.status(400).send({ Message: "Only held payments can be released", success: false });
+                }
+                if (!booking.completionPhoto) {
+                    return res.status(400).send({ Message: "Completion proof photo is required before releasing payment", success: false });
+                }
+                if (!providerAccountNumber) {
+                    return res.status(400).send({ Message: "Provider account number is required before releasing payment", success: false });
+                }
+                if (!/^[A-Za-z0-9 -]{6,34}$/.test(providerAccountNumber)) {
+                    return res.status(400).send({ Message: "Provider account number must be 6 to 34 letters or numbers", success: false });
+                }
+
+                booking.paymentRelease = {
+                    providerAccountNumber,
+                    releasedAt: new Date(),
+                    releasedBy: req.user.id
+                };
+            } else {
+                if (!isCustomerOwner && req.user.role !== 'admin') {
+                    return res.status(403).send({ Message: "Only the customer can update payment status", success: false });
+                }
+                if (paymentStatus === 'Paid' && req.user.role !== 'admin') {
+                    return res.status(400).send({ Message: "Please complete payment through Safepay", success: false });
+                }
+                if (paymentStatus === 'Paid' && booking.status !== 'Accepted') {
+                    return res.status(400).send({ Message: "Payment is available after provider accepts the booking", success: false });
                 }
             }
             booking.paymentStatus = paymentStatus;
@@ -369,6 +448,43 @@ export const UpdateBookingStatus = async (req, res) => {
     } catch (error) {
         console.log(error);
         return res.status(500).send({ Message: "Internal server error", success: false });
+    }
+};
+
+export const CompleteBookingWithProof = async (req, res) => {
+    try {
+        const booking = await Booking.findById(req.params.id);
+
+        if (!booking) {
+            return res.status(404).send({ Message: "Booking not found", success: false });
+        }
+
+        const isProviderOwner = req.user.role === 'provider' && booking.providerId.toString() === req.user.id;
+        if (!isProviderOwner) {
+            return res.status(403).send({ Message: "Only the assigned provider can submit completion proof", success: false });
+        }
+
+        if (booking.status !== 'In-Progress') {
+            return res.status(400).send({ Message: "Work can be completed only after it is in progress", success: false });
+        }
+
+        if (!['Paid', 'Released'].includes(booking.paymentStatus)) {
+            return res.status(400).send({ Message: "Payment must be completed before submitting completed work", success: false });
+        }
+
+        if (!req.file) {
+            return res.status(400).send({ Message: "Please upload a completion proof photo", success: false });
+        }
+
+        const uploadedImage = await uploadImageBuffer(req.file.buffer, 'proconnect/completion-proof');
+        booking.completionPhoto = uploadedImage.secure_url;
+        booking.status = 'Completed';
+        await booking.save();
+
+        return res.status(200).send({ Message: "Completion proof submitted for admin review", booking, success: true });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).send({ Message: error.message || "Unable to submit completion proof", success: false });
     }
 };
 
@@ -508,6 +624,53 @@ export const DeleteBookingRequest = async (req, res) => {
         await Booking.findByIdAndDelete(booking._id);
 
         return res.status(200).send({ Message: "Booking request deleted successfully", success: true });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).send({ Message: "Internal server error", success: false });
+    }
+};
+
+export const DeleteAllBookings = async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).send({ Message: "Only admin can delete all bookings", success: false });
+        }
+
+        const bookings = await Booking.find({}).select('_id');
+        const bookingIds = bookings.map((booking) => booking._id);
+
+        if (bookingIds.length === 0) {
+            return res.status(200).send({ Message: "No bookings to delete", deletedCount: 0, success: true });
+        }
+
+        const removedReviews = await Review.find({ bookingId: { $in: bookingIds } }).select('providerId');
+        const affectedProviderIds = [
+            ...new Set(removedReviews.map((review) => review.providerId?.toString()).filter(Boolean))
+        ];
+
+        await Promise.all([
+            Message.deleteMany({ bookingId: { $in: bookingIds } }),
+            Review.deleteMany({ bookingId: { $in: bookingIds } }),
+            Booking.deleteMany({ _id: { $in: bookingIds } })
+        ]);
+
+        await Promise.all(affectedProviderIds.map(async (providerId) => {
+            const stats = await Review.aggregate([
+                { $match: { providerId: new mongoose.Types.ObjectId(providerId) } },
+                { $group: { _id: '$providerId', average: { $avg: '$rating' }, count: { $sum: 1 } } }
+            ]);
+
+            await Provider.findByIdAndUpdate(providerId, {
+                ratingAverage: stats[0] ? Number(stats[0].average.toFixed(1)) : DEFAULT_NEW_PROVIDER_RATING,
+                ratingCount: stats[0]?.count || 0
+            });
+        }));
+
+        return res.status(200).send({
+            Message: `Deleted ${bookingIds.length} booking${bookingIds.length === 1 ? '' : 's'} successfully`,
+            deletedCount: bookingIds.length,
+            success: true
+        });
     } catch (error) {
         console.log(error);
         return res.status(500).send({ Message: "Internal server error", success: false });

@@ -48,6 +48,14 @@ const bookingSchema = new mongoose.Schema({
     state: String,
     paidAt: Date
   },
+  paymentRelease: {
+    providerAccountNumber: String,
+    releasedAt: Date,
+    releasedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'user'
+    }
+  },
   status: {
     type: String,
     enum: ['Requested', 'Accepted', 'In-Progress', 'Completed', 'Cancelled', 'Disputed'],

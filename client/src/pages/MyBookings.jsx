@@ -3,8 +3,17 @@ import axios from 'axios'
 import { Badge, Button, Container, Form, Modal, Spinner, Table, Toast, ToastContainer } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { FiAlertTriangle, FiArrowLeft, FiImage, FiMapPin, FiMessageCircle, FiMic, FiSend, FiSquare, FiStar, FiTrash2, FiX } from 'react-icons/fi';
+import { API_BASE_URL } from '../config/api';
 
 const getChatSeenKey = (userId, bookingId) => `chatLastSeen:${userId}:${bookingId}`;
+
+const getErrorMessage = (err, fallback) => {
+    const responseMessage = err.response?.data?.Message || err.response?.data?.message;
+    if (responseMessage) return responseMessage;
+    if (typeof err.response?.data === 'string' && err.response.data.trim()) return err.response.data;
+    if (err.response?.status) return `${fallback} Server returned ${err.response.status}.`;
+    return fallback;
+};
 
 const MyBookings = () => {
     const [profile, setProfile] = useState(null);
@@ -13,8 +22,11 @@ const MyBookings = () => {
     const [showChatModal, setShowChatModal] = useState(false);
     const [showPhotoModal, setShowPhotoModal] = useState(false);
     const [showReviewModal, setShowReviewModal] = useState(false);
+    const [showCompletionModal, setShowCompletionModal] = useState(false);
+    const [showReleaseModal, setShowReleaseModal] = useState(false);
     const [selectedBooking, setSelectedBooking] = useState(null);
     const [selectedPhoto, setSelectedPhoto] = useState('');
+    const [selectedPhotoTitle, setSelectedPhotoTitle] = useState('Photo');
     const [messages, setMessages] = useState([]);
     const [chatText, setChatText] = useState('');
     const [voiceBlob, setVoiceBlob] = useState(null);
@@ -22,11 +34,18 @@ const MyBookings = () => {
     const [isRecording, setIsRecording] = useState(false);
     const [sendingMessage, setSendingMessage] = useState(false);
     const [submittingReview, setSubmittingReview] = useState(false);
+    const [submittingCompletion, setSubmittingCompletion] = useState(false);
+    const [releasingPayment, setReleasingPayment] = useState(false);
+    const [deletingAllBookings, setDeletingAllBookings] = useState(false);
+    const [payingBookingId, setPayingBookingId] = useState('');
     const [reviewForm, setReviewForm] = useState({ rating: '5', comment: '' });
+    const [providerAccountNumber, setProviderAccountNumber] = useState('');
+    const [completionPhoto, setCompletionPhoto] = useState(null);
+    const [completionPreview, setCompletionPreview] = useState('');
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
     const token = localStorage.getItem("token");
     const navigate = useNavigate();
-    const baseURL = import.meta.env.VITE_APP_URL;
+    const baseURL = API_BASE_URL;
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
     const voicePreviewUrlRef = useRef('');
@@ -58,6 +77,12 @@ const MyBookings = () => {
             mediaRecorderRef.current?.stream?.getTracks()?.forEach((track) => track.stop());
         };
     }, []);
+
+    useEffect(() => {
+        return () => {
+            if (completionPreview) URL.revokeObjectURL(completionPreview);
+        };
+    }, [completionPreview]);
 
     const fetchProfile = async () => {
         try {
@@ -95,31 +120,124 @@ const MyBookings = () => {
         }
     };
 
-    const updatePaymentStatus = async (bookingId, paymentStatus, successMessage) => {
+    const updatePaymentStatus = async (bookingId, paymentStatus, successMessage, extraPayload = {}) => {
         try {
-            const { data } = await axios.put(`${baseURL}/api/bookings/${bookingId}/status`, { paymentStatus }, {
+            const { data } = await axios.put(`${baseURL}/api/bookings/${bookingId}/status`, { paymentStatus, ...extraPayload }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setToast({ show: true, message: data.Message || successMessage, type: 'success' });
             fetchBookings();
+            return true;
         } catch (err) {
             setToast({ show: true, message: err.response?.data?.Message || "Unable to update payment.", type: 'danger' });
+            return false;
         }
     };
 
     const startSafepayCheckout = async (bookingId) => {
         try {
+            setPayingBookingId(bookingId);
             const { data } = await axios.post(`${baseURL}/api/bookings/${bookingId}/safepay/checkout`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             window.location.href = data.checkoutUrl;
         } catch (err) {
             setToast({ show: true, message: err.response?.data?.Message || "Unable to start Safepay checkout.", type: 'danger' });
+            setPayingBookingId('');
         }
     };
 
-    const releaseBookingPayment = (bookingId) => {
-        updatePaymentStatus(bookingId, 'Released', "Payment released to provider.");
+    const releaseBookingPayment = (booking) => {
+        setSelectedBooking(booking);
+        setProviderAccountNumber('');
+        setShowReleaseModal(true);
+    };
+
+    const closeReleaseModal = () => {
+        if (releasingPayment) return;
+
+        setShowReleaseModal(false);
+        setProviderAccountNumber('');
+    };
+
+    const submitReleasePayment = async (e) => {
+        e.preventDefault();
+        const trimmedAccountNumber = providerAccountNumber.trim();
+
+        if (!selectedBooking || !trimmedAccountNumber) {
+            setToast({ show: true, message: 'Please enter the provider account number.', type: 'danger' });
+            return;
+        }
+
+        try {
+            setReleasingPayment(true);
+            const wasReleased = await updatePaymentStatus(selectedBooking._id, 'Released', "Payment released to provider.", {
+                providerAccountNumber: trimmedAccountNumber
+            });
+            if (wasReleased) closeReleaseModal();
+        } finally {
+            setReleasingPayment(false);
+        }
+    };
+
+    const openCompletionProof = (booking) => {
+        setSelectedBooking(booking);
+        setCompletionPhoto(null);
+        setCompletionPreview('');
+        setShowCompletionModal(true);
+    };
+
+    const closeCompletionProof = () => {
+        setShowCompletionModal(false);
+        setCompletionPhoto(null);
+        setCompletionPreview('');
+    };
+
+    const handleCompletionPhotoChange = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            setToast({ show: true, message: 'Please select an image file.', type: 'danger' });
+            return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+            setToast({ show: true, message: 'Image must be 5MB or smaller.', type: 'danger' });
+            return;
+        }
+
+        if (completionPreview) URL.revokeObjectURL(completionPreview);
+        setCompletionPhoto(file);
+        setCompletionPreview(URL.createObjectURL(file));
+    };
+
+    const submitCompletionProof = async (e) => {
+        e.preventDefault();
+        if (!selectedBooking || !completionPhoto) {
+            setToast({ show: true, message: 'Please upload a completion proof photo.', type: 'danger' });
+            return;
+        }
+
+        try {
+            setSubmittingCompletion(true);
+            const payload = new FormData();
+            payload.append('completionPhoto', completionPhoto);
+
+            const { data } = await axios.put(`${baseURL}/api/bookings/${selectedBooking._id}/complete`, payload, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+            setToast({ show: true, message: data.Message, type: 'success' });
+            closeCompletionProof();
+            fetchBookings();
+        } catch (err) {
+            setToast({ show: true, message: getErrorMessage(err, "Unable to submit completion proof."), type: 'danger' });
+        } finally {
+            setSubmittingCompletion(false);
+        }
     };
 
     const deleteBookingRequest = async (bookingId) => {
@@ -133,6 +251,24 @@ const MyBookings = () => {
             fetchBookings();
         } catch (err) {
             setToast({ show: true, message: err.response?.data?.Message || "Unable to delete booking request.", type: 'danger' });
+        }
+    };
+
+    const deleteAllBookings = async () => {
+        if (!isAdmin || bookings.length === 0) return;
+        if (!window.confirm(`Delete all ${bookings.length} bookings? This cannot be undone.`)) return;
+
+        try {
+            setDeletingAllBookings(true);
+            const { data } = await axios.delete(`${baseURL}/api/bookings`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setToast({ show: true, message: data.Message || 'All bookings deleted successfully.', type: 'success' });
+            setBookings([]);
+        } catch (err) {
+            setToast({ show: true, message: err.response?.data?.Message || "Unable to delete all bookings.", type: 'danger' });
+        } finally {
+            setDeletingAllBookings(false);
         }
     };
 
@@ -317,8 +453,9 @@ const MyBookings = () => {
         }
     };
 
-    const openProblemPhoto = (photo) => {
+    const openProblemPhoto = (photo, title = 'Problem Picture') => {
         setSelectedPhoto(photo);
+        setSelectedPhotoTitle(title);
         setShowPhotoModal(true);
     };
 
@@ -343,6 +480,8 @@ const MyBookings = () => {
         );
     }
 
+    const isAdmin = profile?.role === 'admin';
+
     return (
         <Container className="py-5">
             <Button variant="link" className="px-0 mb-3 fw-semibold text-decoration-none" onClick={() => navigate('/profile')}>
@@ -351,15 +490,35 @@ const MyBookings = () => {
             </Button>
 
             <div className="glass-card">
-                <div className="d-flex justify-content-between align-items-center mb-3">
-                    <h3 className="fw-bold mb-0">My Bookings</h3>
-                    <Badge bg="primary">Total: {bookings.length}</Badge>
+                <div className="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
+                    <h3 className="fw-bold mb-0">{isAdmin ? 'All Bookings' : 'My Bookings'}</h3>
+                    <div className="d-flex align-items-center gap-2 flex-wrap">
+                        <Badge bg="primary">Total: {bookings.length}</Badge>
+                        {isAdmin && (
+                            <Button
+                                size="sm"
+                                variant="outline-danger"
+                                onClick={deleteAllBookings}
+                                disabled={deletingAllBookings || bookings.length === 0}
+                            >
+                                <FiTrash2 className="me-1" />
+                                {deletingAllBookings ? 'Deleting...' : 'Delete All'}
+                            </Button>
+                        )}
+                    </div>
                 </div>
                 <Table responsive hover className="align-middle mb-0">
                     <thead>
                         <tr>
                             <th>Service</th>
-                            <th>{profile?.role === 'provider' ? 'Customer' : 'Provider'}</th>
+                            {isAdmin ? (
+                                <>
+                                    <th>Customer</th>
+                                    <th>Provider</th>
+                                </>
+                            ) : (
+                                <th>{profile?.role === 'provider' ? 'Customer' : 'Provider'}</th>
+                            )}
                             <th>Date</th>
                             <th>Status</th>
                             <th>Payment</th>
@@ -370,7 +529,14 @@ const MyBookings = () => {
                         {bookings.length > 0 ? bookings.map((booking) => (
                             <tr key={booking._id}>
                                 <td>{booking.serviceCategory}</td>
-                                <td>{profile?.role === 'provider' ? booking.customerId?.name || 'N/A' : booking.providerId?.name || 'N/A'}</td>
+                                {isAdmin ? (
+                                    <>
+                                        <td>{booking.customerId?.name || 'N/A'}</td>
+                                        <td>{booking.providerId?.name || 'N/A'}</td>
+                                    </>
+                                ) : (
+                                    <td>{profile?.role === 'provider' ? booking.customerId?.name || 'N/A' : booking.providerId?.name || 'N/A'}</td>
+                                )}
                                 <td>{booking.scheduledDate ? new Date(booking.scheduledDate).toLocaleDateString() : 'N/A'}</td>
                                 <td><Badge bg={booking.status === 'Completed' ? 'success' : booking.status === 'Cancelled' ? 'danger' : 'warning'}>{booking.status}</Badge></td>
                                 <td><Badge bg={getPaymentBadgeVariant(booking.paymentStatus)}>{getPaymentLabel(booking.paymentStatus)}</Badge></td>
@@ -386,15 +552,22 @@ const MyBookings = () => {
                                             <Badge bg="secondary" className="align-self-center">Waiting for payment</Badge>
                                         )}
                                         {profile?.role === 'provider' && booking.status === 'In-Progress' && (
-                                            <Button size="sm" variant="success" onClick={() => updateBookingStatus(booking._id, 'Completed')}>Complete</Button>
+                                            <Button size="sm" variant="success" onClick={() => openCompletionProof(booking)}>Complete Work</Button>
                                         )}
                                         {profile?.role === 'user' && booking.status === 'Accepted' && booking.paymentStatus !== 'Paid' && (
-                                            <Button size="sm" variant="warning" onClick={() => startSafepayCheckout(booking._id)}>
-                                                Pay Now
+                                            <Button size="sm" variant="warning" onClick={() => startSafepayCheckout(booking._id)} disabled={payingBookingId === booking._id}>
+                                                {payingBookingId === booking._id ? (
+                                                    <>
+                                                        <span className="spinner-border spinner-border-sm me-1"></span>
+                                                        Opening...
+                                                    </>
+                                                ) : (
+                                                    'Pay Now'
+                                                )}
                                             </Button>
                                         )}
-                                        {profile?.role === 'user' && booking.status === 'Completed' && booking.paymentStatus === 'Paid' && (
-                                            <Button size="sm" variant="success" onClick={() => releaseBookingPayment(booking._id)}>
+                                        {isAdmin && booking.status === 'Completed' && booking.paymentStatus === 'Paid' && (
+                                            <Button size="sm" variant="success" onClick={() => releaseBookingPayment(booking)}>
                                                 Release Payment
                                             </Button>
                                         )}
@@ -405,9 +578,15 @@ const MyBookings = () => {
                                             </Button>
                                         )}
                                         {booking.problemPhoto && (
-                                            <Button size="sm" variant="outline-secondary" onClick={() => openProblemPhoto(booking.problemPhoto)}>
+                                            <Button size="sm" variant="outline-secondary" onClick={() => openProblemPhoto(booking.problemPhoto, 'Problem Picture')}>
                                                 <FiImage className="me-1" />
                                                 Photo
+                                            </Button>
+                                        )}
+                                        {booking.completionPhoto && (
+                                            <Button size="sm" variant="outline-info" onClick={() => openProblemPhoto(booking.completionPhoto, 'Completion Proof')}>
+                                                <FiImage className="me-1" />
+                                                Proof
                                             </Button>
                                         )}
                                         {booking.address?.mapUrl && booking.status !== 'Completed' && (
@@ -450,12 +629,46 @@ const MyBookings = () => {
                             </tr>
                         )) : (
                             <tr>
-                                <td colSpan="6" className="text-center text-muted py-4">No bookings yet.</td>
+                                <td colSpan={isAdmin ? 7 : 6} className="text-center text-muted py-4">No bookings yet.</td>
                             </tr>
                         )}
                     </tbody>
                 </Table>
             </div>
+
+            <Modal show={showReleaseModal} onHide={closeReleaseModal} centered>
+                <Modal.Header closeButton>
+                    <Modal.Title>Release Payment</Modal.Title>
+                </Modal.Header>
+                <Form onSubmit={submitReleasePayment}>
+                    <Modal.Body>
+                        <p className="text-muted mb-3">
+                            Enter the provider account number before releasing payment to {selectedBooking?.providerId?.name || 'the provider'}.
+                        </p>
+                        <Form.Group>
+                            <Form.Label>Provider account number</Form.Label>
+                            <Form.Control
+                                value={providerAccountNumber}
+                                onChange={(e) => setProviderAccountNumber(e.target.value)}
+                                placeholder="Account number or IBAN"
+                                minLength={6}
+                                maxLength={34}
+                                required
+                                autoFocus
+                            />
+                            <Form.Text className="text-muted">
+                                Use 6 to 34 letters or numbers. Spaces and hyphens are allowed.
+                            </Form.Text>
+                        </Form.Group>
+                    </Modal.Body>
+                    <Modal.Footer>
+                        <Button variant="outline-secondary" onClick={closeReleaseModal} disabled={releasingPayment}>Cancel</Button>
+                        <Button type="submit" variant="success" disabled={releasingPayment || !providerAccountNumber.trim()}>
+                            {releasingPayment ? 'Releasing...' : 'Release Payment'}
+                        </Button>
+                    </Modal.Footer>
+                </Form>
+            </Modal>
 
             <Modal show={showChatModal} onHide={() => setShowChatModal(false)} centered size="lg">
                 <Modal.Header closeButton>
@@ -534,15 +747,43 @@ const MyBookings = () => {
 
             <Modal show={showPhotoModal} onHide={() => setShowPhotoModal(false)} centered size="lg">
                 <Modal.Header closeButton>
-                    <Modal.Title>Problem Picture</Modal.Title>
+                    <Modal.Title>{selectedPhotoTitle}</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
                     {selectedPhoto ? (
-                        <img src={selectedPhoto} alt="Uploaded problem" className="img-fluid rounded w-100" />
+                        <img src={selectedPhoto} alt={selectedPhotoTitle} className="img-fluid rounded w-100" />
                     ) : (
                         <div className="text-center text-muted py-5">No picture available.</div>
                     )}
                 </Modal.Body>
+            </Modal>
+
+            <Modal show={showCompletionModal} onHide={closeCompletionProof} centered>
+                <Modal.Header closeButton>
+                    <Modal.Title>Submit Completion Proof</Modal.Title>
+                </Modal.Header>
+                <Form onSubmit={submitCompletionProof}>
+                    <Modal.Body>
+                        <Form.Group className="mb-3">
+                            <Form.Label>Completion photo</Form.Label>
+                            <Form.Control type="file" accept="image/*" onChange={handleCompletionPhotoChange} required />
+                            <Form.Text className="text-muted">
+                                Upload a clear photo showing the completed work for admin review.
+                            </Form.Text>
+                        </Form.Group>
+                        {completionPreview && (
+                            <div className="border rounded p-2 bg-white">
+                                <img src={completionPreview} alt="Completion preview" className="img-fluid rounded w-100" style={{ maxHeight: '260px', objectFit: 'cover' }} />
+                            </div>
+                        )}
+                    </Modal.Body>
+                    <Modal.Footer>
+                        <Button variant="outline-secondary" onClick={closeCompletionProof}>Cancel</Button>
+                        <Button type="submit" variant="success" disabled={submittingCompletion || !completionPhoto}>
+                            {submittingCompletion ? 'Submitting...' : 'Submit for Review'}
+                        </Button>
+                    </Modal.Footer>
+                </Form>
             </Modal>
 
             <Modal show={showReviewModal} onHide={() => setShowReviewModal(false)} centered>

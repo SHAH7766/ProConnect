@@ -3,6 +3,7 @@ import axios from 'axios'
 import { Badge, Button, Col, Container, Form, Row, Spinner, Toast, ToastContainer } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiMail, FiLock, FiPhone } from 'react-icons/fi';
+import { API_BASE_URL } from '../config/api';
 
 const EditProfile = () => {
     const [data, setData] = useState(null);
@@ -21,7 +22,7 @@ const EditProfile = () => {
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
     const token = localStorage.getItem("token");
     const navigate = useNavigate();
-    const baseURL = import.meta.env.VITE_APP_URL;
+    const baseURL = API_BASE_URL;
 
     useEffect(() => {
         fetchProfile();

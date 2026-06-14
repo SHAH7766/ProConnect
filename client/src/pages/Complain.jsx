@@ -3,6 +3,7 @@ import axios from 'axios';
 import React, { useEffect, useState } from 'react'
 import { Alert, Toast, ToastContainer } from 'react-bootstrap';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../config/api';
 
 const Complain = () => {
   let navigate = useNavigate()
@@ -14,7 +15,7 @@ const Complain = () => {
   const [selectedProviderId, setSelectedProviderId] = useState(location.state?.providerId || '');
   const [selectedProviderName, setSelectedProviderName] = useState(location.state?.providerName || '');
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-const baseURL = import.meta.env.VITE_APP_URL;
+  const baseURL = API_BASE_URL;
 
   useEffect(() => {
     fetchBookings();

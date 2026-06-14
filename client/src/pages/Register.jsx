@@ -3,6 +3,7 @@ import { Container, Row, Col, Form, Button, Toast, ToastContainer } from 'react-
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { FiBriefcase, FiUser } from 'react-icons/fi';
+import { API_BASE_URL } from '../config/api';
 
 const Register = () => {
   const [loading, setLoading] = useState(false);
@@ -28,7 +29,7 @@ const Register = () => {
     special: false
   });
 
-  const baseURL = import.meta.env.VITE_APP_URL;
+  const baseURL = API_BASE_URL;
   const navigate = useNavigate();
 
   useEffect(() => {

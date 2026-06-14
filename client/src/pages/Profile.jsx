@@ -3,6 +3,7 @@ import axios from 'axios'
 import { Alert, Badge, Button, Col, Container, Row, Spinner } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { FiCheckCircle, FiCreditCard, FiMessageCircle, FiUser, FiXCircle } from 'react-icons/fi';
+import { API_BASE_URL } from '../config/api';
 
 const getChatSeenKey = (userId, bookingId) => `chatLastSeen:${userId}:${bookingId}`;
 
@@ -14,7 +15,7 @@ const Profile = () => {
     const [loading, setLoading] = useState(true);
     const token = localStorage.getItem("token");
     const navigate = useNavigate();
-    const baseURL = import.meta.env.VITE_APP_URL;
+    const baseURL = API_BASE_URL;
 
     useEffect(() => {
         fetchProfile();

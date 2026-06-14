@@ -53,7 +53,7 @@ const Navigation = () => {
                   </NavDropdown.Item>
                   <NavDropdown.Item as={Link} to="/my-bookings">
                     <FiCalendar className="me-2" />
-                    My Bookings
+                    {userRole === 'admin' ? 'All Bookings' : 'My Bookings'}
                   </NavDropdown.Item>
                   {canViewComplaints && (
                     <NavDropdown.Item as={Link} to={complaintsPath}>

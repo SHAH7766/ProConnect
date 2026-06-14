@@ -9,14 +9,29 @@ import ComplaintsRouter from './Routes/ComplaintsRoutes.js'
 import BookingRouter from './Routes/BookingRoutes.js'
 const app = express()
 Dbconnection()
-app.use(express.json({ limit: '5mb' }))
-app.use(express.urlencoded({ extended: true, limit: '5mb' }))
-app.use(cors({
-    origin: ['https://pro-connect-v6i2.vercel.app', 'http://localhost:5173'],
+const allowedOrigins = [
+    'https://pro-connect-v6i2.vercel.app',
+    'http://localhost:5173',
+    'http://localhost:3000',
+    ...(process.env.CLIENT_URL || '').split(',')
+].map((origin) => origin.trim()).filter(Boolean)
+
+const corsOptions = {
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            return callback(null, true)
+        }
+
+        return callback(new Error(`Origin ${origin} is not allowed by CORS`))
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization']
-}));
+}
+
+app.use(express.json({ limit: '5mb' }))
+app.use(express.urlencoded({ extended: true, limit: '5mb' }))
+app.use(cors(corsOptions))
 app.get("/", (req, res) => {
     res.send({ Message: "ProConnect API is running", success: true })
 })

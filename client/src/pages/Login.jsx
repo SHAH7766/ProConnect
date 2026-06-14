@@ -3,6 +3,7 @@ import { Container, Row, Col, Form, Button, Toast, ToastContainer } from 'react-
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { FiBriefcase, FiUser } from 'react-icons/fi';
 import axios from 'axios';
+import { API_BASE_URL } from '../config/api';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -33,7 +34,7 @@ const Login = () => {
       return setToast({ show: true, message: 'Password is required', type: 'danger' });
     }
 
-    const baseURL = import.meta.env.VITE_APP_URL;
+    const baseURL = API_BASE_URL;
     const endpoint = isProvider
       ? `${baseURL}/api/loginprovider`
       : `${baseURL}/api/loginuser`;

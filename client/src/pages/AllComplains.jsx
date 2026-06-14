@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Container, Table, Badge, Button, Toast, ToastContainer, Alert } from 'react-bootstrap';
 import axios from 'axios';
 import { FiTrash2 } from 'react-icons/fi';
+import { API_BASE_URL } from '../config/api';
 
 const AllComplains = () => {
   const token = localStorage.getItem('token');
@@ -10,7 +11,7 @@ const AllComplains = () => {
   const [complaints, setComplaints] = useState([]);
   const [error, setError] = useState('');
 
-  const baseURL = import.meta.env.VITE_APP_URL;
+  const baseURL = API_BASE_URL;
 
   const [toast, setToast] = useState({
     show: false,
