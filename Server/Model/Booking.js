@@ -50,6 +50,8 @@ const bookingSchema = new mongoose.Schema({
   },
   paymentRelease: {
     providerAccountNumber: String,
+    sandboxBankName: String,
+    releasedAmount: Number,
     releasedAt: Date,
     releasedBy: {
       type: mongoose.Schema.Types.ObjectId,

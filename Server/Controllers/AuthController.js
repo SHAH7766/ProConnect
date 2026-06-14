@@ -8,6 +8,11 @@ import jwt from 'jsonwebtoken'
 import { resetpassword } from "../utils/ResetPassword.js"
 import Booking from "../Model/Booking.js"
 import { isProviderActive } from "../utils/ProviderActivation.js"
+
+const isValidSandboxAccountNumber = (value = '') => /^[A-Za-z0-9 -]{6,34}$/.test(value);
+
+const createSandboxAccountNumber = (providerId) => `SBX-${providerId.toString().slice(-12).toUpperCase()}`;
+
 export const RegisterUser = async (req, res) => {
     let role = ""
     try {
@@ -65,13 +70,16 @@ export const LoginController = async (req, res) => {
 export const RegisterProvider = async (req, res) => {
     let role = ""
     try {
-        const { name, email, password, experience, category, charges, phone = '' } = req.body
+        const { name, email, password, experience, category, charges, phone = '', bankAccountNumber = '' } = req.body
         const normalizedCategory = category === 'Electrician' ? 'Electronics' : category
         if (!normalizedCategory || !['Plumber', 'Electronics'].includes(normalizedCategory))
             return res.status(400).send({ Message: "Please select a valid provider category", success: false })
         const providerCharges = Number(charges)
         if (!Number.isFinite(providerCharges) || providerCharges <= 0)
             return res.status(400).send({ Message: "Please enter valid provider charges", success: false })
+        const trimmedBankAccountNumber = bankAccountNumber.trim()
+        if (trimmedBankAccountNumber && !isValidSandboxAccountNumber(trimmedBankAccountNumber))
+            return res.status(400).send({ Message: "Sandbox bank account number must be 6 to 34 letters or numbers", success: false })
         const existProvider = await provider.findOne({ email })
         let countProviders = await provider.find()
         if (existProvider)
@@ -87,8 +95,20 @@ export const RegisterProvider = async (req, res) => {
             category: normalizedCategory,
             charges: providerCharges,
             completionRate: 70,
-            isActive: false
+            isActive: false,
+            sandboxBankAccount: {
+                accountNumber: trimmedBankAccountNumber,
+                accountTitle: name,
+                bankName: 'ProConnect Sandbox Bank',
+                balance: 0,
+                currency: 'PKR',
+                isSetupComplete: Boolean(trimmedBankAccountNumber),
+                transactions: []
+            }
         })
+        if (!newProvider.sandboxBankAccount.accountNumber) {
+            newProvider.sandboxBankAccount.accountNumber = createSandboxAccountNumber(newProvider._id)
+        }
         newProvider = await newProvider.save()
         if (newProvider) {
             await EmailClient(email, name)
@@ -165,6 +185,16 @@ export const Profile = async (req, res) => {
 
         if (role === 'provider') {
             profileData = await provider.findById(id).select('-password');
+            if (profileData && !profileData.sandboxBankAccount?.accountNumber) {
+                profileData.sandboxBankAccount = profileData.sandboxBankAccount || {};
+                profileData.sandboxBankAccount.accountNumber = createSandboxAccountNumber(profileData._id);
+                profileData.sandboxBankAccount.accountTitle = profileData.name;
+                profileData.sandboxBankAccount.bankName = profileData.sandboxBankAccount.bankName || 'ProConnect Sandbox Bank';
+                profileData.sandboxBankAccount.balance = profileData.sandboxBankAccount.balance || 0;
+                profileData.sandboxBankAccount.currency = profileData.sandboxBankAccount.currency || 'PKR';
+                profileData.sandboxBankAccount.isSetupComplete = false;
+                await profileData.save();
+            }
         } else {
             profileData = await user.findById(id).select('-password');
         }
@@ -230,6 +260,15 @@ export const ActivateProvider = async (req, res) => {
         }
 
         selectedProvider.isActive = true
+        if (!selectedProvider.sandboxBankAccount?.accountNumber) {
+            selectedProvider.sandboxBankAccount = selectedProvider.sandboxBankAccount || {}
+            selectedProvider.sandboxBankAccount.accountNumber = createSandboxAccountNumber(selectedProvider._id)
+            selectedProvider.sandboxBankAccount.accountTitle = selectedProvider.name
+            selectedProvider.sandboxBankAccount.bankName = selectedProvider.sandboxBankAccount.bankName || 'ProConnect Sandbox Bank'
+            selectedProvider.sandboxBankAccount.balance = selectedProvider.sandboxBankAccount.balance || 0
+            selectedProvider.sandboxBankAccount.currency = selectedProvider.sandboxBankAccount.currency || 'PKR'
+            selectedProvider.sandboxBankAccount.isSetupComplete = false
+        }
         await selectedProvider.save()
 
         return res.status(200).send({ Message: "Provider account activated successfully", provider: selectedProvider, success: true })
@@ -295,7 +334,7 @@ export const ResetPassword = async (req, res) => {
 
 export const UpdateProfileContact = async (req, res) => {
     try {
-        const { email = '', phone = '' } = req.body;
+        const { email = '', phone = '', sandboxBankAccountNumber = '' } = req.body;
         const { id, role } = req.user;
         const Model = role === 'provider' ? provider : user;
         const account = await Model.findById(id);
@@ -327,6 +366,25 @@ export const UpdateProfileContact = async (req, res) => {
 
         account.email = trimmedEmail;
         account.phone = trimmedPhone;
+
+        if (role === 'provider') {
+            const trimmedSandboxAccountNumber = sandboxBankAccountNumber.trim();
+            if (!trimmedSandboxAccountNumber) {
+                return res.status(400).send({ Message: "Sandbox bank account number is required", success: false });
+            }
+            if (!isValidSandboxAccountNumber(trimmedSandboxAccountNumber)) {
+                return res.status(400).send({ Message: "Sandbox bank account number must be 6 to 34 letters or numbers", success: false });
+            }
+
+            account.sandboxBankAccount = account.sandboxBankAccount || {};
+            account.sandboxBankAccount.accountNumber = trimmedSandboxAccountNumber;
+            account.sandboxBankAccount.accountTitle = account.name;
+            account.sandboxBankAccount.bankName = account.sandboxBankAccount.bankName || 'ProConnect Sandbox Bank';
+            account.sandboxBankAccount.balance = account.sandboxBankAccount.balance || 0;
+            account.sandboxBankAccount.currency = account.sandboxBankAccount.currency || 'PKR';
+            account.sandboxBankAccount.isSetupComplete = true;
+        }
+
         await account.save();
 
         return res.status(200).send({
@@ -336,7 +394,8 @@ export const UpdateProfileContact = async (req, res) => {
                 name: account.name,
                 email: account.email,
                 phone: account.phone,
-                role: account.role
+                role: account.role,
+                sandboxBankAccount: account.sandboxBankAccount
             },
             success: true
         });

@@ -111,6 +111,7 @@ const Allusers = () => {
               <th className="py-3 border-0">Email</th>
               <th className="py-3 border-0 mt-1">Role</th>
               <th className="py-3 border-0">Status</th>
+              <th className="py-3 border-0">Sandbox Account</th>
               <th className="py-3 border-0">Actions</th>
             </tr>
           </thead>
@@ -132,6 +133,16 @@ const Allusers = () => {
                       </Badge>
                     ) : (
                       <Badge bg="light" text="dark">N/A</Badge>
+                    )}
+                  </td>
+                  <td className="py-3">
+                    {user.role === 'provider' ? (
+                      <div>
+                        <div className="fw-semibold">{user.sandboxBankAccount?.accountNumber || 'Not set'}</div>
+                        <small className="text-muted">Rs. {user.sandboxBankAccount?.balance || 0}</small>
+                      </div>
+                    ) : (
+                      <span className="text-muted">N/A</span>
                     )}
                   </td>
                   <td className="py-3">
@@ -171,7 +182,7 @@ const Allusers = () => {
               ))
             ) : (
               <tr>
-                <td colSpan="5" className="text-center py-4 text-muted">No users found.</td>
+                <td colSpan="6" className="text-center py-4 text-muted">No users found.</td>
               </tr>
             )}
           </tbody>

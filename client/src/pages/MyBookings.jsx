@@ -15,6 +15,10 @@ const getErrorMessage = (err, fallback) => {
     return fallback;
 };
 
+const getGeneratedSandboxAccountNumber = (providerId = '') => providerId
+    ? `SBX-${providerId.toString().slice(-12).toUpperCase()}`
+    : '';
+
 const MyBookings = () => {
     const [profile, setProfile] = useState(null);
     const [bookings, setBookings] = useState([]);
@@ -149,7 +153,9 @@ const MyBookings = () => {
 
     const releaseBookingPayment = (booking) => {
         setSelectedBooking(booking);
-        setProviderAccountNumber('');
+        setProviderAccountNumber(
+            booking.providerId?.sandboxBankAccount?.accountNumber || getGeneratedSandboxAccountNumber(booking.providerId?._id)
+        );
         setShowReleaseModal(true);
     };
 
@@ -643,7 +649,7 @@ const MyBookings = () => {
                 <Form onSubmit={submitReleasePayment}>
                     <Modal.Body>
                         <p className="text-muted mb-3">
-                            Enter the provider account number before releasing payment to {selectedBooking?.providerId?.name || 'the provider'}.
+                            Payment will be credited to {selectedBooking?.providerId?.name || 'the provider'}'s sandbox account.
                         </p>
                         <Form.Group>
                             <Form.Label>Provider account number</Form.Label>
@@ -657,7 +663,7 @@ const MyBookings = () => {
                                 autoFocus
                             />
                             <Form.Text className="text-muted">
-                                Use 6 to 34 letters or numbers. Spaces and hyphens are allowed.
+                                Saved provider account is used for the sandbox release. Older providers can be initialized here.
                             </Form.Text>
                         </Form.Group>
                     </Modal.Body>

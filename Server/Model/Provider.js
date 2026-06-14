@@ -34,6 +34,56 @@ const provider=new mongoose.Schema({
         default:0,
         min:0
     },
+    sandboxBankAccount:{
+        accountNumber:{
+            type:String,
+            default:''
+        },
+        accountTitle:{
+            type:String,
+            default:''
+        },
+        bankName:{
+            type:String,
+            default:'ProConnect Sandbox Bank'
+        },
+        balance:{
+            type:Number,
+            default:0,
+            min:0
+        },
+        currency:{
+            type:String,
+            default:'PKR'
+        },
+        isSetupComplete:{
+            type:Boolean,
+            default:false
+        },
+        transactions:[{
+            bookingId:{
+                type:mongoose.Schema.Types.ObjectId,
+                ref:'Booking'
+            },
+            amount:{
+                type:Number,
+                default:0
+            },
+            type:{
+                type:String,
+                enum:['credit'],
+                default:'credit'
+            },
+            description:{
+                type:String,
+                default:''
+            },
+            createdAt:{
+                type:Date,
+                default:Date.now
+            }
+        }]
+    },
     location:{
         city:{
             type:String,

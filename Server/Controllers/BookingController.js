@@ -17,6 +17,7 @@ const SAFEPAY_ENV = process.env.SAFEPAY_ENV || 'sandbox';
 const SAFEPAY_HOST = SAFEPAY_ENV === 'production'
     ? 'https://api.getsafepay.com'
     : 'https://sandbox.api.getsafepay.com';
+const SANDBOX_ACCOUNT_REGEX = /^[A-Za-z0-9 -]{6,34}$/;
 
 const toNumberOrNull = (value) => {
     const number = Number(value);
@@ -299,7 +300,7 @@ export const GetMyBookings = async (req, res) => {
                 : { customerId: req.user.id };
 
         const bookings = await Booking.find(filter)
-            .populate('providerId', 'name email phone experience')
+            .populate('providerId', 'name email phone experience sandboxBankAccount')
             .populate('customerId', 'name email phone')
             .sort({ createdAt: -1 });
 
@@ -312,6 +313,12 @@ export const GetMyBookings = async (req, res) => {
                 bookingObject.paymentRelease = {
                     ...bookingObject.paymentRelease,
                     providerAccountNumber: undefined
+                };
+            }
+            if (req.user.role !== 'admin' && bookingObject.providerId?.sandboxBankAccount) {
+                bookingObject.providerId = {
+                    ...bookingObject.providerId,
+                    sandboxBankAccount: undefined
                 };
             }
 
@@ -403,7 +410,14 @@ export const UpdateBookingStatus = async (req, res) => {
         if (status) booking.status = status;
         if (paymentStatus) {
             if (paymentStatus === 'Released') {
-                const providerAccountNumber = String(req.body.providerAccountNumber || '').trim();
+                const releaseProvider = await Provider.findById(booking.providerId);
+                if (!releaseProvider) {
+                    return res.status(404).send({ Message: "Provider not found for this booking", success: false });
+                }
+
+                const savedAccountNumber = releaseProvider.sandboxBankAccount?.accountNumber?.trim() || '';
+                const providerAccountNumber = savedAccountNumber || String(req.body.providerAccountNumber || '').trim();
+                const releasedAmount = Number(booking.charges || 0);
 
                 if (req.user.role !== 'admin') {
                     return res.status(403).send({ Message: "Only admin can release payment after reviewing completed work", success: false });
@@ -420,15 +434,40 @@ export const UpdateBookingStatus = async (req, res) => {
                 if (!providerAccountNumber) {
                     return res.status(400).send({ Message: "Provider account number is required before releasing payment", success: false });
                 }
-                if (!/^[A-Za-z0-9 -]{6,34}$/.test(providerAccountNumber)) {
+                if (!SANDBOX_ACCOUNT_REGEX.test(providerAccountNumber)) {
                     return res.status(400).send({ Message: "Provider account number must be 6 to 34 letters or numbers", success: false });
                 }
+                if (!Number.isFinite(releasedAmount) || releasedAmount <= 0) {
+                    return res.status(400).send({ Message: "Booking charges are missing for sandbox release", success: false });
+                }
+
+                releaseProvider.sandboxBankAccount = releaseProvider.sandboxBankAccount || {};
+                releaseProvider.sandboxBankAccount.accountNumber = providerAccountNumber;
+                releaseProvider.sandboxBankAccount.accountTitle = releaseProvider.sandboxBankAccount.accountTitle || releaseProvider.name;
+                releaseProvider.sandboxBankAccount.bankName = releaseProvider.sandboxBankAccount.bankName || 'ProConnect Sandbox Bank';
+                releaseProvider.sandboxBankAccount.balance = Number(releaseProvider.sandboxBankAccount.balance || 0) + releasedAmount;
+                releaseProvider.sandboxBankAccount.currency = releaseProvider.sandboxBankAccount.currency || 'PKR';
+                releaseProvider.sandboxBankAccount.isSetupComplete = releaseProvider.sandboxBankAccount.isSetupComplete || Boolean(savedAccountNumber);
+                if (!Array.isArray(releaseProvider.sandboxBankAccount.transactions)) {
+                    releaseProvider.sandboxBankAccount.transactions = [];
+                }
+                releaseProvider.sandboxBankAccount.transactions.push({
+                    bookingId: booking._id,
+                    amount: releasedAmount,
+                    type: 'credit',
+                    description: `Sandbox release for ${booking.serviceCategory}`,
+                    createdAt: new Date()
+                });
 
                 booking.paymentRelease = {
                     providerAccountNumber,
+                    sandboxBankName: releaseProvider.sandboxBankAccount.bankName,
+                    releasedAmount,
                     releasedAt: new Date(),
                     releasedBy: req.user.id
                 };
+
+                await releaseProvider.save();
             } else {
                 if (!isCustomerOwner && req.user.role !== 'admin') {
                     return res.status(403).send({ Message: "Only the customer can update payment status", success: false });

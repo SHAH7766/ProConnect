@@ -14,7 +14,8 @@ const Register = () => {
     password: '',
     experience: '',
     category: '',
-    charges: ''
+    charges: '',
+    bankAccountNumber: ''
   });
   const [isProvider, setIsProvider] = useState(false);
   const [toast, setToast] = useState({
@@ -149,6 +150,7 @@ const Register = () => {
 
                     <Form.Control className="mb-3" name="experience" placeholder="Experience in years" value={formData.experience} onChange={handleChange} required />
                     <Form.Control className="mb-3" name="charges" type="number" min="1" placeholder="Service charges in Rs." value={formData.charges} onChange={handleChange} required />
+                    <Form.Control className="mb-3" name="bankAccountNumber" placeholder="Sandbox bank account number (optional)" value={formData.bankAccountNumber} onChange={handleChange} minLength={6} maxLength={34} />
                   </>
                 )}
 
