@@ -131,6 +131,25 @@ const sendPaymentReleaseWebhook = async (payload) => {
     }
 };
 
+const sendBookingRequestWebhook = async (payload) => {
+    const webhookUrl = process.env.N8N_BOOKING_REQUEST_WEBHOOK_URL;
+    if (!webhookUrl) return;
+
+    try {
+        const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            console.error(`n8n booking request webhook failed with status ${response.status}`);
+        }
+    } catch (error) {
+        console.error("n8n booking request webhook error:", error.message);
+    }
+};
+
 const normalizeCategory = (category = '') => {
     return category === 'Electrician' ? 'Electronics' : category;
 };
@@ -294,13 +313,35 @@ export const CreateBooking = async (req, res) => {
         ]);
 
         if (selectedProvider?.email) {
-            sendBookingNotification(selectedProvider.email, {
+            const bookingNotificationPayload = {
+                event: 'booking.requested',
+                providerName: selectedProvider.name,
+                providerEmail: selectedProvider.email,
                 customerName: customer?.name || req.user.name || "Customer",
+                customerEmail: customer?.email || '',
+                bookingId: booking._id.toString(),
                 serviceCategory,
-                scheduledDate: new Date(scheduledDate).toLocaleDateString(),
+                scheduledDate,
+                formattedScheduledDate: new Date(scheduledDate).toLocaleDateString(),
                 charges: finalCharges,
-                description
-            });
+                currency: 'PKR',
+                description,
+                address: booking.address,
+                problemPhoto,
+                createdAt: booking.createdAt
+            };
+
+            if (process.env.N8N_BOOKING_REQUEST_WEBHOOK_URL) {
+                sendBookingRequestWebhook(bookingNotificationPayload);
+            } else {
+                sendBookingNotification(selectedProvider.email, {
+                    customerName: bookingNotificationPayload.customerName,
+                    serviceCategory,
+                    scheduledDate: bookingNotificationPayload.formattedScheduledDate,
+                    charges: finalCharges,
+                    description
+                });
+            }
         }
 
         return res.status(201).send({ Message: "Service request sent successfully", booking, success: true });
