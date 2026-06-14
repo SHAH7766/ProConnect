@@ -112,6 +112,25 @@ const getSafepayTrackerToken = (response) => response?.data?.tracker?.token || r
 const getSafepayPassportToken = (response) => response?.data?.token || response?.data || response?.token;
 const getSafepayTrackerState = (response) => response?.data?.state || response?.state;
 
+const sendPaymentReleaseWebhook = async (payload) => {
+    const webhookUrl = process.env.N8N_PAYMENT_RELEASE_WEBHOOK_URL;
+    if (!webhookUrl) return;
+
+    try {
+        const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            console.error(`n8n payment release webhook failed with status ${response.status}`);
+        }
+    } catch (error) {
+        console.error("n8n payment release webhook error:", error.message);
+    }
+};
+
 const normalizeCategory = (category = '') => {
     return category === 'Electrician' ? 'Electronics' : category;
 };
@@ -407,6 +426,8 @@ export const UpdateBookingStatus = async (req, res) => {
             return res.status(403).send({ Message: "Only the assigned provider can update work status", success: false });
         }
 
+        let paymentReleaseWebhookPayload = null;
+
         if (status) booking.status = status;
         if (paymentStatus) {
             if (paymentStatus === 'Released') {
@@ -468,6 +489,19 @@ export const UpdateBookingStatus = async (req, res) => {
                 };
 
                 await releaseProvider.save();
+
+                paymentReleaseWebhookPayload = {
+                    event: 'payment.released',
+                    providerName: releaseProvider.name,
+                    providerEmail: releaseProvider.email,
+                    providerAccountNumber,
+                    amount: releasedAmount,
+                    currency: releaseProvider.sandboxBankAccount.currency,
+                    bookingId: booking._id.toString(),
+                    serviceCategory: booking.serviceCategory,
+                    releasedAt: booking.paymentRelease.releasedAt,
+                    releasedBy: req.user.id
+                };
             } else {
                 if (!isCustomerOwner && req.user.role !== 'admin') {
                     return res.status(403).send({ Message: "Only the customer can update payment status", success: false });
@@ -482,6 +516,10 @@ export const UpdateBookingStatus = async (req, res) => {
             booking.paymentStatus = paymentStatus;
         }
         await booking.save();
+
+        if (paymentReleaseWebhookPayload) {
+            sendPaymentReleaseWebhook(paymentReleaseWebhookPayload);
+        }
 
         return res.status(200).send({ Message: "Booking updated successfully", booking, success: true });
     } catch (error) {
