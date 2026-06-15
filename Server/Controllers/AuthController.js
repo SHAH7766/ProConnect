@@ -2,7 +2,7 @@ import user from "../Model/User.js"
 import provider from "../Model/Provider.js"
 import { HashPassword, ComparePassword } from "../Auth/Hash.js"
 import { EmailClient } from "../utils/Nodemailer.js"
-import { LoginEmail } from "../utils/LoginEmail.js"
+import { sendLoginAlertAutomation } from "../utils/LoginAlertAutomation.js"
 import Complaint from "../Model/Complaint.js"
 import jwt from 'jsonwebtoken'
 import { resetpassword } from "../utils/ResetPassword.js"
@@ -12,6 +12,31 @@ import { isProviderActive } from "../utils/ProviderActivation.js"
 const isValidSandboxAccountNumber = (value = '') => /^[A-Za-z0-9 -]{6,34}$/.test(value);
 
 const createSandboxAccountNumber = (providerId) => `SBX-${providerId.toString().slice(-12).toUpperCase()}`;
+
+const getRequestIpAddress = (req) => {
+    const forwardedFor = req.headers['x-forwarded-for'];
+    if (Array.isArray(forwardedFor)) {
+        return forwardedFor[0]?.split(',')[0]?.trim() || 'Unknown';
+    }
+
+    if (forwardedFor) {
+        return forwardedFor.split(',')[0].trim();
+    }
+
+    return req.ip || req.socket?.remoteAddress || 'Unknown';
+}
+
+const sendLoginAlert = (account, req) => {
+    void sendLoginAlertAutomation(account.email, {
+        name: account.name,
+        role: account.role,
+        ipAddress: getRequestIpAddress(req),
+        userAgent: req.get('user-agent') || 'Unknown device',
+        loginAt: new Date()
+    }).catch((error) => {
+        console.error("Login alert dispatch failed:", error.message);
+    });
+}
 
 export const RegisterUser = async (req, res) => {
     let role = ""
@@ -55,7 +80,7 @@ export const LoginController = async (req, res) => {
             role: existUser.role
         }
         if (resultPassword) {
-            await LoginEmail(email)
+            sendLoginAlert(existUser, req)
             const token = jwt.sign({ LoggedUser }, process.env.SECRET_KEY, { expiresIn: "50min" })
             return res.send({ Message: `Welcome back ${existUser.name}`, success: true, token, role: existUser.role })
         }
@@ -142,7 +167,7 @@ export const loginProvider = async (req, res) => {
             role: existProvider.role
         }
         if (resultPassword) {
-            await LoginEmail(email)
+            sendLoginAlert(existProvider, req)
             const token = jwt.sign({ LoggedProvider }, process.env.SECRET_KEY, { expiresIn: "50m" })
             return res.send({ Message: `Welcome back ${existProvider.name}`, success: true, token, role: LoggedProvider.role })
         }
