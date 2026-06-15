@@ -87,8 +87,8 @@ function App() {
             </RoleRoute>
           } />
           <Route path='/forgotpassword' element={<ForgotPasswordForm />} />
+          <Route path='/resetpassword' element={<ResetPassword />} />
           <Route path='/resetpassword/:token' element={<ResetPassword />} />
-          
         </Routes>
       </div>
     </>

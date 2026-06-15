@@ -8,12 +8,14 @@ import {
     Toast,
     ToastContainer
 } from 'react-bootstrap';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
+import { API_BASE_URL } from '../config/api';
 
 const ResetPassword = () => {
+    const { token: routeToken } = useParams();
     const [searchParams] = useSearchParams();
-    const token = searchParams.get('token');
+    const token = routeToken || searchParams.get('token');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [toast, setToast] = useState({
@@ -30,6 +32,7 @@ const ResetPassword = () => {
     });
 
     const navigate = useNavigate();
+    const baseURL = API_BASE_URL;
 
     // ✅ FIXED: Reference 'password' state directly, not 'formData'
     useEffect(() => {
