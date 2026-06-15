@@ -640,14 +640,17 @@ export const CreateSafepayCheckout = async (req, res) => {
 
         const session = await safepay.payments.session.setup({
             merchant_api_key: process.env.SAFEPAY_API_KEY,
-            intent: 'CYBERSOURCE',
             mode: 'payment',
-            entry_mode: 'raw',
+            entry_mode: 'web',
             currency: 'PKR',
             amount,
+            description: `${booking.serviceCategory} service - Order #${booking._id.toString().slice(-8)}`,
+            customer_email: booking.customerId?.email || 'customer@proconnect.pk',
+            customer_name: booking.customerId?.name || 'Customer',
             metadata: {
                 order_id: booking._id.toString(),
-                source: 'proconnect'
+                source: 'proconnect',
+                provider: booking.providerId?.name || 'Provider'
             }
         });
         const tracker = getSafepayTrackerToken(session);
