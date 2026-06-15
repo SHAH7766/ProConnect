@@ -114,7 +114,7 @@ const getSafepayTrackerState = (response) => response?.data?.state || response?.
 
 const sendPaymentReleaseWebhook = async (payload) => {
     const webhookUrl = process.env.N8N_PAYMENT_RELEASE_WEBHOOK_URL;
-    if (!webhookUrl) return;
+    if (!webhookUrl) return Promise.resolve();
 
     try {
         const response = await fetch(webhookUrl, {
@@ -126,14 +126,16 @@ const sendPaymentReleaseWebhook = async (payload) => {
         if (!response.ok) {
             console.error(`n8n payment release webhook failed with status ${response.status}`);
         }
+        return response;
     } catch (error) {
         console.error("n8n payment release webhook error:", error.message);
+        return Promise.reject(error);
     }
 };
 
 const sendBookingRequestWebhook = async (payload) => {
     const webhookUrl = process.env.N8N_BOOKING_REQUEST_WEBHOOK_URL;
-    if (!webhookUrl) return;
+    if (!webhookUrl) return Promise.resolve();
 
     try {
         const response = await fetch(webhookUrl, {
@@ -145,8 +147,10 @@ const sendBookingRequestWebhook = async (payload) => {
         if (!response.ok) {
             console.error(`n8n booking request webhook failed with status ${response.status}`);
         }
+        return response;
     } catch (error) {
         console.error("n8n booking request webhook error:", error.message);
+        return Promise.reject(error);
     }
 };
 

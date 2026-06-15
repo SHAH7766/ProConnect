@@ -313,11 +313,14 @@ export const ForgotPassword = async (req, res) => {
         const resetToken = await jwt.sign({ email }, process.env.SECRET_KEY, { expiresIn: "15m" })
         const clientUrl = (process.env.CLIENT_URL || 'http://localhost:5173').split(',')[0].trim()
         const resetLink = `${clientUrl}/resetpassword/${resetToken}`
+        console.log("📧 Sending password reset email to:", email);
+        console.log("🔗 Reset link:", resetLink);
         await resetpassword(email, resetLink, {
             name: account.name,
             role: account.role,
             requestedAt: new Date()
         })
+        console.log("✅ Password reset request processed");
         return res.send({ Message: "Password reset link sent to your email", success: true })
 
     } catch (error) {

@@ -47,9 +47,9 @@ export const sendLoginAlertAutomation = (email, details = {}) => {
     loginAt = new Date(),
   } = details;
 
-  // Fire-and-forget: don't await this in your login controller
-  // so user login stays fast even if n8n is slow
-  sendLoginAlertWebhook({
+  // Fire-and-forget: return the promise so callers can attach .catch()
+  // without causing `Cannot read properties of undefined`
+  return sendLoginAlertWebhook({
     event: "account.login",
     accountName: name,
     accountEmail: email,
@@ -58,5 +58,5 @@ export const sendLoginAlertAutomation = (email, details = {}) => {
     userAgent,
     loginAt: new Date(loginAt).toISOString(), // ensure ISO format for n8n
     appUrl: (process.env.CLIENT_URL || "http://localhost:5173").split(",")[0].trim(),
-  }).catch(() => {}); // swallow errors so they never crash login
+  });
 };
