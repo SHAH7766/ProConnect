@@ -307,13 +307,17 @@ export const ForgotPassword = async (req, res) => {
         const { email } = req.body
         const existUser = await user.findOne({ email })
         const existProvider = await provider.findOne({ email })
-        if (!existUser)
-            return res.status(404).send({ Message: "Account not found", success: false })
-        if (!existProvider)
+        const account = existUser || existProvider
+        if (!account)
             return res.status(404).send({ Message: "Account not found", success: false })
         const resetToken = await jwt.sign({ email }, process.env.SECRET_KEY, { expiresIn: "15m" })
-        const resetLink = `http://localhost:5173/resetpassword?token=${resetToken}`
-        await resetpassword(email, resetLink)
+        const clientUrl = (process.env.CLIENT_URL || 'http://localhost:5173').split(',')[0].trim()
+        const resetLink = `${clientUrl}/resetpassword?token=${resetToken}`
+        await resetpassword(email, resetLink, {
+            name: account.name,
+            role: account.role,
+            requestedAt: new Date()
+        })
         return res.send({ Message: "Password reset link sent to your email", success: true })
 
     } catch (error) {

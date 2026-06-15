@@ -1,74 +1,44 @@
-import { Resend } from "resend";
-
-let resend;
-
-const getResendClient = () => {
-  if (!process.env.RESEND_API_KEY) {
-    throw new Error("RESEND_API_KEY is missing. Email sending is disabled.");
-  }
-
-  if (!resend) {
-    resend = new Resend(process.env.RESEND_API_KEY);
-  }
-
-  return resend;
-};
-
-export const resetpassword = async (email, resetLink) => {
-  try {
-    const resendClient = getResendClient();
-    const response = await resendClient.emails.send({
-      from: "ProConnect Support <onboarding@resend.dev>", // replace later with your domain
-      to: email,
-      subject: "🔑 Reset Your ProConnect Password",
-      html: `
-        <div style="font-family: Arial, sans-serif; background:#f4f6f8; padding:40px;">
-          
-          <div style="max-width:600px;margin:auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,0.1);">
-            
-            <div style="background:#4f46e5;padding:20px;text-align:center;color:white;">
-              <h2 style="margin:0;">ProConnect Password Reset</h2>
-            </div>
-
-            <div style="padding:30px;color:#333;">
-              <h3 style="margin-top:0;">Forgot your password? 🔑</h3>
-
-              <p style="font-size:15px;line-height:1.6;">
-                We received a request to reset your ProConnect account password. Click the button below to set a new one. This link will expire in 15 minutes.
-              </p>
-
-              <div style="text-align:center;margin:30px 0;">
-                <a href="${resetLink}" style="background:#4f46e5;color:#fff;padding:14px 25px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold;">
-                  Reset My Password
-                </a>
-              </div>
-
-              <p style="font-size:14px;color:#555;">
-                If you did not request this, you can safely ignore this email.
-              </p>
-
-              <hr style="border:none; border-top:1px solid #eee; margin:20px 0;" />
-
-              <p style="font-size:12px;color:#999;word-break:break-all;">
-                If the button doesn't work, copy this link:<br/>
-                <a href="${resetLink}" style="color:#4f46e5;">${resetLink}</a>
-              </p>
-            </div>
-
-            <div style="background:#f3f4f6;text-align:center;padding:15px;font-size:12px;color:#777;">
-              © ${new Date().getFullYear()} ProConnect. All rights reserved.
-            </div>
-
-          </div>
-        </div>
-      `,
-    });
-
-    console.log("Reset email sent:", response);
-    return response;
-
-  } catch (error) {
-    console.error("Password Reset Email Error:", error.message);
+const sendPasswordResetWebhook = async (payload) => {
+  const webhookUrl = process.env.N8N_PASSWORD_RESET_WEBHOOK_URL;
+  if (!webhookUrl) {
+    console.log("N8N_PASSWORD_RESET_WEBHOOK_URL is missing. Password reset automation skipped.");
     return null;
   }
+
+  try {
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      console.error(`n8n password reset webhook failed with status ${response.status}`);
+      return null;
+    }
+
+    return response;
+  } catch (error) {
+    console.error("n8n password reset webhook error:", error.message);
+    return null;
+  }
+};
+
+export const resetpassword = async (email, resetLink, details = {}) => {
+  const {
+    name = "Account holder",
+    role = "account",
+    requestedAt = new Date(),
+  } = details;
+
+  return sendPasswordResetWebhook({
+    event: "password.reset.requested",
+    accountName: name,
+    accountEmail: email,
+    accountRole: role,
+    resetLink,
+    requestedAt,
+    expiresInMinutes: 15,
+    appUrl: (process.env.CLIENT_URL || "http://localhost:5173").split(",")[0].trim(),
+  });
 };
