@@ -1,0 +1,327 @@
+const API_BASE = '/api/admin';
+const tokenKey = 'proconnect_admin_token';
+
+const state = {
+  token: localStorage.getItem(tokenKey),
+  filter: 'all',
+  search: '',
+  accounts: [],
+  view: 'accounts',
+  bookings: []
+};
+
+const loginView = document.getElementById('loginView');
+const dashboardView = document.getElementById('dashboardView');
+const loginForm = document.getElementById('loginForm');
+const loginMessage = document.getElementById('loginMessage');
+const adminName = document.getElementById('adminName');
+const summaryGrid = document.getElementById('summaryGrid');
+const accountsBody = document.getElementById('accountsBody');
+const emptyState = document.getElementById('emptyState');
+const searchInput = document.getElementById('searchInput');
+const refreshButton = document.getElementById('refreshButton');
+const logoutButton = document.getElementById('logoutButton');
+const toast = document.getElementById('toast');
+const navItems = document.querySelectorAll('.nav-item');
+const topbarTitle = document.querySelector('.topbar h1');
+const tableHead = document.querySelector('.table-panel thead');
+
+const request = async (path, options = {}) => {
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(state.token ? { Authorization: `Bearer ${state.token}` } : {}),
+      ...(options.headers || {})
+    }
+  });
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok || data.success === false) {
+    throw new Error(data.Message || 'Request failed');
+  }
+
+  return data;
+};
+
+const showToast = (message) => {
+  toast.textContent = message;
+  toast.classList.remove('hidden');
+  window.clearTimeout(showToast.timer);
+  showToast.timer = window.setTimeout(() => toast.classList.add('hidden'), 3200);
+};
+
+const setView = (isLoggedIn) => {
+  loginView.classList.toggle('hidden', isLoggedIn);
+  dashboardView.classList.toggle('hidden', !isLoggedIn);
+  if (window.lucide) {
+    window.lucide.createIcons();
+  }
+};
+
+const formatDate = (value) => {
+  if (!value) return 'N/A';
+  return new Intl.DateTimeFormat(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit'
+  }).format(new Date(value));
+};
+
+const escapeHtml = (value = '') => String(value)
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#039;');
+
+const renderSummary = (summary = {}) => {
+  const items = [
+    ['Users', summary.users || 0],
+    ['Providers', summary.providers || 0],
+    ['Pending Providers', summary.pendingProviders || 0],
+    ['Bookings', summary.bookings || 0]
+  ];
+
+  summaryGrid.innerHTML = items.map(([label, value]) => `
+    <article class="summary-item">
+      <span>${label}</span>
+      <strong>${value}</strong>
+    </article>
+  `).join('');
+};
+
+const roleBadge = (account) => {
+  const role = account.type === 'provider' ? 'provider' : account.role || 'user';
+  return `<span class="badge ${escapeHtml(role)}">${escapeHtml(role.toUpperCase())}</span>`;
+};
+
+const statusBadge = (account) => {
+  if (account.type !== 'provider') {
+    return '<span class="muted">N/A</span>';
+  }
+
+  return account.isActive
+    ? '<span class="badge provider">ACTIVE</span>'
+    : '<span class="badge pending">PENDING</span>';
+};
+
+const actionButtons = (account) => {
+  const deleteAction = account.type === 'provider' ? 'delete-provider' : 'delete-user';
+  const canDelete = account.role !== 'admin';
+  const accountId = escapeHtml(account._id);
+  const providerAction = account.type === 'provider'
+    ? account.isActive
+      ? `<button class="action-button" type="button" title="Deactivate provider" data-action="deactivate-provider" data-id="${accountId}"><i data-lucide="pause-circle"></i></button>`
+      : `<button class="action-button success" type="button" title="Activate provider" data-action="activate-provider" data-id="${accountId}"><i data-lucide="check-circle"></i></button>`
+    : '';
+  const deleteButton = canDelete
+    ? `<button class="action-button danger" type="button" title="Delete account" data-action="${deleteAction}" data-id="${accountId}"><i data-lucide="trash-2"></i></button>`
+    : '';
+
+  return `<div class="actions">${providerAction}${deleteButton}</div>`;
+};
+
+const renderAccounts = () => {
+  if (state.view !== 'accounts') return;
+  accountsBody.innerHTML = state.accounts.map((account) => `
+    <tr>
+      <td>
+        <div class="account-name">${escapeHtml(account.name || 'Unnamed account')}</div>
+        <div class="muted">${escapeHtml(account.phone || 'No phone')}</div>
+      </td>
+      <td>${escapeHtml(account.email || 'N/A')}</td>
+      <td>${roleBadge(account)}</td>
+      <td>${statusBadge(account)}</td>
+      <td>${formatDate(account.createdAt)}</td>
+      <td>${actionButtons(account)}</td>
+    </tr>
+  `).join('');
+
+  emptyState.classList.toggle('hidden', state.accounts.length > 0);
+
+  if (window.lucide) {
+    window.lucide.createIcons();
+  }
+};
+
+const renderBookings = () => {
+  if (state.view !== 'bookings') return;
+  accountsBody.innerHTML = state.bookings.map((b) => `
+    <tr>
+      <td>
+        <div class="account-name">${escapeHtml(b.customerId?.name || b.customerId || 'Unknown')}</div>
+        <div class="muted">${escapeHtml(b.customerId?.email || '')}</div>
+      </td>
+      <td>
+        <div class="account-name">${escapeHtml(b.providerId?.name || b.providerId || 'Unknown')}</div>
+        <div class="muted">${escapeHtml(b.providerId?.email || '')}</div>
+      </td>
+      <td>${escapeHtml(b.serviceCategory || '')}</td>
+      <td>${formatDate(b.scheduledDate)}</td>
+      <td>${escapeHtml(b.status || '')}</td>
+      <td>${escapeHtml(String(b.charges || 0))}</td>
+    </tr>
+  `).join('');
+
+  emptyState.classList.toggle('hidden', state.bookings.length > 0);
+  if (window.lucide) window.lucide.createIcons();
+};
+
+const loadDashboard = async () => {
+  const query = new URLSearchParams({
+    type: state.filter,
+    search: state.search
+  });
+
+  const [meResult, summaryResult, accountsResult] = await Promise.all([
+    request('/me'),
+    request('/summary'),
+    request(`/accounts?${query.toString()}`)
+  ]);
+
+  adminName.textContent = meResult.admin?.name ? `Admin: ${meResult.admin.name}` : 'Admin';
+  renderSummary(summaryResult.summary);
+  state.accounts = accountsResult.accounts || [];
+  state.view = 'accounts';
+  topbarTitle.textContent = 'Account Management';
+  tableHead.innerHTML = `
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Joined</th>
+                  <th class="actions-header">Actions</th>
+                </tr>
+  `;
+  document.getElementById('bookingsHeader')?.classList.add('hidden');
+  renderAccounts();
+  setView(true);
+};
+
+const loadBookings = async () => {
+  const data = await request('/allbooking');
+  state.bookings = data.bookings || [];
+  state.view = 'bookings';
+  topbarTitle.textContent = 'Bookings';
+  tableHead.innerHTML = `
+                <tr>
+                  <th>Customer</th>
+                  <th>Provider</th>
+                  <th>Service</th>
+                  <th>Scheduled</th>
+                  <th>Status</th>
+                  <th>Charges</th>
+                </tr>
+  `;
+  renderBookings();
+  setView(true);
+};
+
+const logout = () => {
+  state.token = '';
+  localStorage.removeItem(tokenKey);
+  setView(false);
+};
+
+loginForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  loginMessage.textContent = '';
+
+  const formData = new FormData(loginForm);
+  try {
+    const data = await request('/login', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: formData.get('email'),
+        password: formData.get('password')
+      })
+    });
+
+    state.token = data.token;
+    localStorage.setItem(tokenKey, data.token);
+    loginForm.reset();
+    await loadDashboard();
+    showToast(data.Message || 'Signed in');
+  } catch (error) {
+    loginMessage.textContent = error.message;
+  }
+});
+
+document.querySelectorAll('.segment').forEach((button) => {
+  button.addEventListener('click', async () => {
+    document.querySelectorAll('.segment').forEach((item) => item.classList.remove('active'));
+    button.classList.add('active');
+    state.filter = button.dataset.filter;
+    await loadDashboard().catch((error) => showToast(error.message));
+  });
+});
+
+navItems.forEach((btn) => {
+  btn.addEventListener('click', async () => {
+    navItems.forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    const view = btn.dataset.view || 'accounts';
+    try {
+      if (view === 'bookings') {
+        await loadBookings();
+      } else {
+        await loadDashboard();
+      }
+    } catch (error) {
+      showToast(error.message);
+    }
+  });
+});
+
+let searchTimer;
+searchInput.addEventListener('input', () => {
+  window.clearTimeout(searchTimer);
+  searchTimer = window.setTimeout(async () => {
+    state.search = searchInput.value.trim();
+    await loadDashboard().catch((error) => showToast(error.message));
+  }, 250);
+});
+
+accountsBody.addEventListener('click', async (event) => {
+  const button = event.target.closest('button[data-action]');
+  if (!button) return;
+
+  const { action, id } = button.dataset;
+  const endpoints = {
+    'activate-provider': ['PUT', `/providers/${id}/activate`, 'Provider activated'],
+    'deactivate-provider': ['PUT', `/providers/${id}/deactivate`, 'Provider deactivated'],
+    'delete-provider': ['DELETE', `/providers/${id}`, 'Provider deleted'],
+    'delete-user': ['DELETE', `/users/${id}`, 'User deleted']
+  };
+  const selected = endpoints[action];
+  if (!selected) return;
+
+  if (action.startsWith('delete') && !window.confirm('Delete this account?')) {
+    return;
+  }
+
+  try {
+    await request(selected[1], { method: selected[0] });
+    await loadDashboard();
+    showToast(selected[2]);
+  } catch (error) {
+    showToast(error.message);
+  }
+});
+
+refreshButton.addEventListener('click', () => {
+  const runner = state.view === 'bookings' ? loadBookings : loadDashboard;
+  runner()
+    .then(() => showToast('Dashboard refreshed'))
+    .catch((error) => showToast(error.message));
+});
+
+logoutButton.addEventListener('click', logout);
+
+if (state.token) {
+  loadDashboard().catch(() => logout());
+} else {
+  setView(false);
+}

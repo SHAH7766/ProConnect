@@ -1,0 +1,120 @@
+import mongoose from 'mongoose';
+
+const providerSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true
+  },
+  email: {
+    type: String,
+    required: true
+  },
+  phone: {
+    type: String,
+    default: ''
+  },
+  password: {
+    type: String,
+    required: true
+  },
+  role: {
+    type: String,
+    default: 'user'
+  },
+  experience: {
+    type: String,
+    required: true
+  },
+  category: {
+    type: String,
+    enum: ['Plumber', 'Electronics', 'Electrician'],
+    required: true
+  },
+  charges: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  sandboxBankAccount: {
+    accountNumber: {
+      type: String,
+      default: ''
+    },
+    accountTitle: {
+      type: String,
+      default: ''
+    },
+    bankName: {
+      type: String,
+      default: 'ProConnect Sandbox Bank'
+    },
+    balance: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    currency: {
+      type: String,
+      default: 'PKR'
+    },
+    isSetupComplete: {
+      type: Boolean,
+      default: false
+    },
+    transactions: [{
+      bookingId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Booking'
+      },
+      amount: {
+        type: Number,
+        default: 0
+      },
+      type: {
+        type: String,
+        enum: ['credit'],
+        default: 'credit'
+      },
+      description: {
+        type: String,
+        default: ''
+      },
+      createdAt: {
+        type: Date,
+        default: Date.now
+      }
+    }]
+  },
+  location: {
+    city: {
+      type: String,
+      default: ''
+    },
+    area: {
+      type: String,
+      default: ''
+    },
+    latitude: Number,
+    longitude: Number
+  },
+  ratingAverage: {
+    type: Number,
+    default: 3.2
+  },
+  ratingCount: {
+    type: Number,
+    default: 0
+  },
+  completionRate: {
+    type: Number,
+    default: 70,
+    min: 0,
+    max: 100
+  },
+  isActive: {
+    type: Boolean,
+    default: false
+  }
+}, { timestamps: true });
+
+export default mongoose.models.provider || mongoose.model('provider', providerSchema);

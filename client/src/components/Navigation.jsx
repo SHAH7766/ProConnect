@@ -1,22 +1,17 @@
-import React from 'react';
+﻿import React from 'react';
 import { Navbar, Nav, Container, NavDropdown } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiAlertTriangle, FiBriefcase, FiCalendar, FiEdit, FiLogOut, FiUser, FiUsers } from 'react-icons/fi';
-
+import { FiAlertTriangle, FiBriefcase, FiCalendar, FiEdit, FiLogOut, FiUser } from 'react-icons/fi';
 const Navigation = () => {
   const navigate = useNavigate();
   const isLoggedIn = localStorage.getItem('token');
   const userRole = localStorage.getItem('role');
-  const canViewComplaints = userRole === 'user' || userRole === 'admin';
-  const complaintsPath = userRole === 'admin' ? '/allcomplaints' : '/complain';
-
+  const canViewComplaints = userRole === 'user';
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
     navigate('/login');
   };
-
-
   return (
     <Navbar expand="lg" className="navbar-custom fixed-top">
       <Container>
@@ -27,17 +22,6 @@ const Navigation = () => {
         <Navbar.Toggle aria-controls="basic-navbar-nav" />
         <Navbar.Collapse id="basic-navbar-nav">
           <Nav className="mx-auto">
-            {userRole !== 'admin' && (
-              <>
-                
-                {/* <Nav.Link as={Link} to="/providers">Find Providers</Nav.Link> */}
-              </>
-            )}
-            {isLoggedIn && userRole === 'admin' && (
-              <Nav.Link as={Link} to="/allusers" className="d-flex align-items-center gap-1">
-                <FiUsers /> All Users
-              </Nav.Link>
-            )}
           </Nav>
           <Nav className="gap-3 mt-3 mt-lg-0">
             {isLoggedIn ? (
@@ -53,10 +37,10 @@ const Navigation = () => {
                   </NavDropdown.Item>
                   <NavDropdown.Item as={Link} to="/my-bookings">
                     <FiCalendar className="me-2" />
-                    {userRole === 'admin' ? 'All Bookings' : 'My Bookings'}
+                    My Bookings
                   </NavDropdown.Item>
                   {canViewComplaints && (
-                    <NavDropdown.Item as={Link} to={complaintsPath}>
+                    <NavDropdown.Item as={Link} to="/complain">
                       <FiAlertTriangle className="me-2" />
                       Complaints
                     </NavDropdown.Item>
@@ -68,7 +52,6 @@ const Navigation = () => {
                   </NavDropdown.Item>
                 </NavDropdown>
               </>
-
             ) : (
               <>
                 <Link to="/login" className="btn btn-outline-custom">Log In</Link>
@@ -81,5 +64,4 @@ const Navigation = () => {
     </Navbar>
   );
 };
-
 export default Navigation;
