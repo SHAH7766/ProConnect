@@ -49,6 +49,37 @@ app.get("/api/health", (req, res) => {
         success: mongoose.connection.readyState === 1
     })
 })
+
+app.get("/api/diagnostics", (req, res) => {
+    const safepayEnv = process.env.SAFEPAY_ENV || 'sandbox';
+    const safepayHost = safepayEnv === 'production'
+        ? 'https://api.getsafepay.com'
+        : 'https://sandbox.api.getsafepay.com';
+
+    res.send({
+        server: "running",
+        env: {
+            SAFEPAY_ENV: safepayEnv,
+            CLIENT_URL: process.env.CLIENT_URL || null,
+            VITE_APP_URL: process.env.VITE_APP_URL || null,
+            API_BASE_URL: process.env.API_BASE_URL || null
+        },
+        cors: {
+            allowedOrigins,
+            originHeader: req.get('origin') || null,
+            refererHeader: req.get('referer') || null
+        },
+        safepay: {
+            host: safepayHost,
+            publicCheckoutBase: {
+                sandbox: 'https://sandbox.api.getsafepay.com/embedded/',
+                production: 'https://getsafepay.com/embedded/'
+            }[safepayEnv]
+        },
+        success: true
+    })
+})
+
 app.use("/api", router)
 app.use('/api', ComplaintsRouter) // New route for complaints management
 app.use('/api', BookingRouter)

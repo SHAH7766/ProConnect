@@ -115,6 +115,16 @@ const getSafepayClient = () => {
     });
 };
 
+const resolveClientUrl = (req) => {
+    const configuredUrl = process.env.CLIENT_URL?.trim();
+    if (configuredUrl) return configuredUrl.replace(/\/$/, '');
+
+    const origin = req.get('origin') || req.get('referer');
+    if (origin) return origin.replace(/\/$/, '');
+
+    return 'http://localhost:5173';
+};
+
 const getSafepayTrackerToken = (response) => response?.data?.tracker?.token || response?.tracker?.token || response?.data?.token;
 const getSafepayPassportToken = (response) => response?.data?.token || response?.data || response?.token;
 const getSafepayTrackerState = (response) => response?.data?.state || response?.state;
@@ -719,7 +729,7 @@ export const CreateSafepayCheckout = async (req, res) => {
 
         const passport = await safepay.client.passport.create();
         const tbt = getSafepayPassportToken(passport);
-        const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+        const clientUrl = resolveClientUrl(req);
         const checkoutUrl = safepay.checkout.createCheckoutUrl({
             env: SAFEPAY_ENV,
             tracker,
@@ -735,7 +745,12 @@ export const CreateSafepayCheckout = async (req, res) => {
 
         return res.status(200).send({ checkoutUrl, tracker, success: true });
     } catch (error) {
-        console.log(error);
+        console.error("Safepay checkout error:", {
+            message: error?.message,
+            status: error?.status,
+            response: error?.response?.data || error?.data || null,
+            stack: error?.stack
+        });
         return res.status(500).send({ Message: error.message || "Unable to start Safepay checkout", success: false });
     }
 };
