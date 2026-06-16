@@ -2,8 +2,12 @@ import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 import { Badge, Button, Col, Container, Form, Row, Spinner, Toast, ToastContainer } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
-import { FiArrowLeft, FiMail, FiLock, FiPhone } from 'react-icons/fi';
+import { FiArrowLeft, FiCreditCard, FiMail, FiLock, FiPhone } from 'react-icons/fi';
 import { API_BASE_URL } from '../config/api';
+
+const getGeneratedSandboxAccountNumber = (providerId = '') => providerId
+    ? `SBX-${providerId.toString().slice(-12).toUpperCase()}`
+    : '';
 
 const EditProfile = () => {
     const [data, setData] = useState(null);
@@ -12,7 +16,8 @@ const EditProfile = () => {
     const [savingPassword, setSavingPassword] = useState(false);
     const [contactForm, setContactForm] = useState({
         email: '',
-        phone: ''
+        phone: '',
+        sandboxBankAccountNumber: ''
     });
     const [passwordForm, setPasswordForm] = useState({
         currentPassword: '',
@@ -36,7 +41,8 @@ const EditProfile = () => {
             setData(data.profile);
             setContactForm({
                 email: data.profile?.email || '',
-                phone: data.profile?.phone || ''
+                phone: data.profile?.phone || '',
+                sandboxBankAccountNumber: data.profile?.sandboxBankAccount?.accountNumber || getGeneratedSandboxAccountNumber(data.profile?._id)
             });
         } catch (err) {
             console.error("Profile fetch error:", err);
@@ -65,7 +71,8 @@ const EditProfile = () => {
             setData((current) => ({
                 ...current,
                 email: data.profile?.email || contactForm.email,
-                phone: data.profile?.phone || contactForm.phone
+                phone: data.profile?.phone || contactForm.phone,
+                sandboxBankAccount: data.profile?.sandboxBankAccount || current?.sandboxBankAccount
             }));
             setToast({ show: true, message: data.Message, type: 'success' });
         } catch (err) {
@@ -180,6 +187,38 @@ const EditProfile = () => {
                             </Button>
                         </Form>
                     </div>
+
+                    {data?.role === 'provider' && (
+                        <div className="glass-card mb-4">
+                            <div className="d-flex align-items-center gap-2 mb-3">
+                                <FiCreditCard className="text-success" />
+                                <h4 className="fw-bold mb-0">Sandbox Account</h4>
+                            </div>
+                            <Form onSubmit={handleContactSubmit}>
+                                <Form.Group className="mb-3">
+                                    <Form.Label>Dummy account number</Form.Label>
+                                    <Form.Control
+                                        name="sandboxBankAccountNumber"
+                                        value={contactForm.sandboxBankAccountNumber}
+                                        onChange={handleContactChange}
+                                        placeholder="SBX-123456789ABC"
+                                        minLength={6}
+                                        maxLength={34}
+                                        required
+                                    />
+                                    <Form.Text className="text-muted">
+                                        Use letters, numbers, spaces, or hyphens only. Released sandbox payments are credited here.
+                                    </Form.Text>
+                                </Form.Group>
+                                <div className="small text-muted mb-3">
+                                    Bank: {data?.sandboxBankAccount?.bankName || 'ProConnect Sandbox Bank'} · Currency: {data?.sandboxBankAccount?.currency || 'PKR'}
+                                </div>
+                                <Button type="submit" className="btn-primary-custom" disabled={savingContact}>
+                                    {savingContact ? 'Saving...' : 'Save Sandbox Account'}
+                                </Button>
+                            </Form>
+                        </div>
+                    )}
 
                     <div className="glass-card">
                         <div className="d-flex align-items-center gap-2 mb-3">

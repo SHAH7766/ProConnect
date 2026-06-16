@@ -82,6 +82,7 @@ const Profile = () => {
         totalPayment: 0,
         pendingPayment: 0
     };
+    const sandboxAccount = data?.sandboxBankAccount || {};
 
     return (
         <Container className="py-5">
@@ -189,6 +190,31 @@ const Profile = () => {
                                 <h4 className="fw-bold">Rs. {activityStats.pendingPayment}</h4>
                             </Col>
                         </Row>
+                        {data?.role === 'provider' && (
+                            <div className="border-top mt-3 pt-3">
+                                <Row className="g-3">
+                                    <Col md={6}>
+                                        <p className="text-muted mb-1">Dummy account number</p>
+                                        <h5 className="fw-bold mb-0">{sandboxAccount.accountNumber || 'Not set'}</h5>
+                                    </Col>
+                                    <Col md={6}>
+                                        <p className="text-muted mb-1">Sandbox balance</p>
+                                        <h5 className="fw-bold mb-0">{sandboxAccount.currency || 'PKR'} {sandboxAccount.balance || 0}</h5>
+                                    </Col>
+                                    <Col md={6}>
+                                        <p className="text-muted mb-1">Account title</p>
+                                        <p className="mb-0">{sandboxAccount.accountTitle || data?.name || 'Provider'}</p>
+                                    </Col>
+                                    <Col md={6}>
+                                        <p className="text-muted mb-1">Bank</p>
+                                        <p className="mb-0">{sandboxAccount.bankName || 'ProConnect Sandbox Bank'}</p>
+                                    </Col>
+                                </Row>
+                                <Button variant="outline-success" className="mt-3" onClick={() => navigate('/edit-profile')}>
+                                    Manage Account
+                                </Button>
+                            </div>
+                        )}
                     </div>
                 </Col>
             </Row>

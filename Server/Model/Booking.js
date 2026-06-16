@@ -65,6 +65,17 @@ const bookingSchema = new mongoose.Schema({
   },
   completionPhoto: {
     type: String
+  },
+  customerCompletionConfirmed: {
+    type: Boolean,
+    default: false
+  },
+  customerCompletedAt: {
+    type: Date
+  },
+  customerCompletedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'user'
   }
 }, { timestamps: true });
 

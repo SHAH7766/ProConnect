@@ -18,6 +18,13 @@ const SAFEPAY_HOST = SAFEPAY_ENV === 'production'
     ? 'https://api.getsafepay.com'
     : 'https://sandbox.api.getsafepay.com';
 const SANDBOX_ACCOUNT_REGEX = /^[A-Za-z0-9 -]{6,34}$/;
+const createSandboxAccountNumber = (providerId) => `SBX-${providerId.toString().slice(-12).toUpperCase()}`;
+
+const createControllerError = (status, message) => {
+    const error = new Error(message);
+    error.status = status;
+    return error;
+};
 
 const toNumberOrNull = (value) => {
     const number = Number(value);
@@ -131,6 +138,87 @@ const sendPaymentReleaseWebhook = async (payload) => {
         console.error("n8n payment release webhook error:", error.message);
         return Promise.reject(error);
     }
+};
+
+const releaseProviderPayment = async (booking, { releasedBy, providerAccountNumber = '' } = {}) => {
+    if (booking.paymentStatus === 'Released') {
+        return { released: false, webhookPayload: null };
+    }
+
+    const releaseProvider = await Provider.findById(booking.providerId);
+    if (!releaseProvider) {
+        throw createControllerError(404, "Provider not found for this booking");
+    }
+
+    const savedAccountNumber = releaseProvider.sandboxBankAccount?.accountNumber?.trim() || '';
+    const finalProviderAccountNumber = savedAccountNumber
+        || String(providerAccountNumber || '').trim()
+        || createSandboxAccountNumber(releaseProvider._id);
+    const releasedAmount = Number(booking.charges || 0);
+
+    if (booking.status !== 'Completed') {
+        throw createControllerError(400, "Payment can be released after the work is completed");
+    }
+    if (booking.paymentStatus !== 'Paid') {
+        throw createControllerError(400, "Only held payments can be released");
+    }
+    if (!booking.completionPhoto) {
+        throw createControllerError(400, "Completion proof photo is required before releasing payment");
+    }
+    if (!booking.customerCompletionConfirmed) {
+        throw createControllerError(400, "Customer must confirm completed work before releasing payment");
+    }
+    if (!SANDBOX_ACCOUNT_REGEX.test(finalProviderAccountNumber)) {
+        throw createControllerError(400, "Provider account number must be 6 to 34 letters or numbers");
+    }
+    if (!Number.isFinite(releasedAmount) || releasedAmount <= 0) {
+        throw createControllerError(400, "Booking charges are missing for sandbox release");
+    }
+
+    releaseProvider.sandboxBankAccount = releaseProvider.sandboxBankAccount || {};
+    releaseProvider.sandboxBankAccount.accountNumber = finalProviderAccountNumber;
+    releaseProvider.sandboxBankAccount.accountTitle = releaseProvider.sandboxBankAccount.accountTitle || releaseProvider.name;
+    releaseProvider.sandboxBankAccount.bankName = releaseProvider.sandboxBankAccount.bankName || 'ProConnect Sandbox Bank';
+    releaseProvider.sandboxBankAccount.balance = Number(releaseProvider.sandboxBankAccount.balance || 0) + releasedAmount;
+    releaseProvider.sandboxBankAccount.currency = releaseProvider.sandboxBankAccount.currency || 'PKR';
+    releaseProvider.sandboxBankAccount.isSetupComplete = true;
+    if (!Array.isArray(releaseProvider.sandboxBankAccount.transactions)) {
+        releaseProvider.sandboxBankAccount.transactions = [];
+    }
+    releaseProvider.sandboxBankAccount.transactions.push({
+        bookingId: booking._id,
+        amount: releasedAmount,
+        type: 'credit',
+        description: `Sandbox release for ${booking.serviceCategory}`,
+        createdAt: new Date()
+    });
+
+    booking.paymentStatus = 'Released';
+    booking.paymentRelease = {
+        providerAccountNumber: finalProviderAccountNumber,
+        sandboxBankName: releaseProvider.sandboxBankAccount.bankName,
+        releasedAmount,
+        releasedAt: new Date(),
+        releasedBy
+    };
+
+    await releaseProvider.save();
+
+    return {
+        released: true,
+        webhookPayload: {
+            event: 'payment.released',
+            providerName: releaseProvider.name,
+            providerEmail: releaseProvider.email,
+            providerAccountNumber: finalProviderAccountNumber,
+            amount: releasedAmount,
+            currency: releaseProvider.sandboxBankAccount.currency,
+            bookingId: booking._id.toString(),
+            serviceCategory: booking.serviceCategory,
+            releasedAt: booking.paymentRelease.releasedAt,
+            releasedBy
+        }
+    };
 };
 
 const sendBookingRequestWebhook = async (payload) => {
@@ -445,7 +533,7 @@ export const GetLatestIncomingChatMessages = async (req, res) => {
 
 export const UpdateBookingStatus = async (req, res) => {
     try {
-        const { status, paymentStatus } = req.body;
+        const { status, paymentStatus, customerCompletionConfirmed } = req.body;
         const booking = await Booking.findById(req.params.id);
 
         if (!booking) {
@@ -472,81 +560,48 @@ export const UpdateBookingStatus = async (req, res) => {
         }
 
         let paymentReleaseWebhookPayload = null;
+        let responseMessage = "Booking updated successfully";
 
         if (status) booking.status = status;
+        if (customerCompletionConfirmed !== undefined) {
+            if (customerCompletionConfirmed !== true) {
+                return res.status(400).send({ Message: "Invalid completion confirmation", success: false });
+            }
+            if (!isCustomerOwner) {
+                return res.status(403).send({ Message: "Only the customer can confirm completed work", success: false });
+            }
+            if (booking.status !== 'Completed') {
+                return res.status(400).send({ Message: "Provider must complete the work before customer confirmation", success: false });
+            }
+            if (!booking.completionPhoto) {
+                return res.status(400).send({ Message: "Completion proof photo is required before customer confirmation", success: false });
+            }
+
+            booking.customerCompletionConfirmed = true;
+            booking.customerCompletedAt = booking.customerCompletedAt || new Date();
+            booking.customerCompletedBy = booking.customerCompletedBy || req.user.id;
+
+            if (booking.paymentStatus === 'Paid') {
+                const releaseResult = await releaseProviderPayment(booking, { releasedBy: req.user.id });
+                paymentReleaseWebhookPayload = releaseResult.webhookPayload;
+                if (releaseResult.released) {
+                    responseMessage = "Work confirmed and payment transferred to provider.";
+                }
+            }
+        }
         if (paymentStatus) {
             if (paymentStatus === 'Released') {
-                const releaseProvider = await Provider.findById(booking.providerId);
-                if (!releaseProvider) {
-                    return res.status(404).send({ Message: "Provider not found for this booking", success: false });
-                }
-
-                const savedAccountNumber = releaseProvider.sandboxBankAccount?.accountNumber?.trim() || '';
-                const providerAccountNumber = savedAccountNumber || String(req.body.providerAccountNumber || '').trim();
-                const releasedAmount = Number(booking.charges || 0);
-
                 if (req.user.role !== 'admin') {
                     return res.status(403).send({ Message: "Only admin can release payment after reviewing completed work", success: false });
                 }
-                if (booking.status !== 'Completed') {
-                    return res.status(400).send({ Message: "Payment can be released after the work is completed", success: false });
-                }
-                if (booking.paymentStatus !== 'Paid') {
-                    return res.status(400).send({ Message: "Only held payments can be released", success: false });
-                }
-                if (!booking.completionPhoto) {
-                    return res.status(400).send({ Message: "Completion proof photo is required before releasing payment", success: false });
-                }
-                if (!providerAccountNumber) {
-                    return res.status(400).send({ Message: "Provider account number is required before releasing payment", success: false });
-                }
-                if (!SANDBOX_ACCOUNT_REGEX.test(providerAccountNumber)) {
-                    return res.status(400).send({ Message: "Provider account number must be 6 to 34 letters or numbers", success: false });
-                }
-                if (!Number.isFinite(releasedAmount) || releasedAmount <= 0) {
-                    return res.status(400).send({ Message: "Booking charges are missing for sandbox release", success: false });
-                }
-
-                releaseProvider.sandboxBankAccount = releaseProvider.sandboxBankAccount || {};
-                releaseProvider.sandboxBankAccount.accountNumber = providerAccountNumber;
-                releaseProvider.sandboxBankAccount.accountTitle = releaseProvider.sandboxBankAccount.accountTitle || releaseProvider.name;
-                releaseProvider.sandboxBankAccount.bankName = releaseProvider.sandboxBankAccount.bankName || 'ProConnect Sandbox Bank';
-                releaseProvider.sandboxBankAccount.balance = Number(releaseProvider.sandboxBankAccount.balance || 0) + releasedAmount;
-                releaseProvider.sandboxBankAccount.currency = releaseProvider.sandboxBankAccount.currency || 'PKR';
-                releaseProvider.sandboxBankAccount.isSetupComplete = releaseProvider.sandboxBankAccount.isSetupComplete || Boolean(savedAccountNumber);
-                if (!Array.isArray(releaseProvider.sandboxBankAccount.transactions)) {
-                    releaseProvider.sandboxBankAccount.transactions = [];
-                }
-                releaseProvider.sandboxBankAccount.transactions.push({
-                    bookingId: booking._id,
-                    amount: releasedAmount,
-                    type: 'credit',
-                    description: `Sandbox release for ${booking.serviceCategory}`,
-                    createdAt: new Date()
+                const releaseResult = await releaseProviderPayment(booking, {
+                    releasedBy: req.user.id,
+                    providerAccountNumber: req.body.providerAccountNumber
                 });
-
-                booking.paymentRelease = {
-                    providerAccountNumber,
-                    sandboxBankName: releaseProvider.sandboxBankAccount.bankName,
-                    releasedAmount,
-                    releasedAt: new Date(),
-                    releasedBy: req.user.id
-                };
-
-                await releaseProvider.save();
-
-                paymentReleaseWebhookPayload = {
-                    event: 'payment.released',
-                    providerName: releaseProvider.name,
-                    providerEmail: releaseProvider.email,
-                    providerAccountNumber,
-                    amount: releasedAmount,
-                    currency: releaseProvider.sandboxBankAccount.currency,
-                    bookingId: booking._id.toString(),
-                    serviceCategory: booking.serviceCategory,
-                    releasedAt: booking.paymentRelease.releasedAt,
-                    releasedBy: req.user.id
-                };
+                paymentReleaseWebhookPayload = releaseResult.webhookPayload;
+                responseMessage = releaseResult.released
+                    ? "Payment released to provider."
+                    : "Payment was already released.";
             } else {
                 if (!isCustomerOwner && req.user.role !== 'admin') {
                     return res.status(403).send({ Message: "Only the customer can update payment status", success: false });
@@ -557,8 +612,8 @@ export const UpdateBookingStatus = async (req, res) => {
                 if (paymentStatus === 'Paid' && booking.status !== 'Accepted') {
                     return res.status(400).send({ Message: "Payment is available after provider accepts the booking", success: false });
                 }
+                booking.paymentStatus = paymentStatus;
             }
-            booking.paymentStatus = paymentStatus;
         }
         await booking.save();
 
@@ -566,10 +621,12 @@ export const UpdateBookingStatus = async (req, res) => {
             sendPaymentReleaseWebhook(paymentReleaseWebhookPayload);
         }
 
-        return res.status(200).send({ Message: "Booking updated successfully", booking, success: true });
+        return res.status(200).send({ Message: responseMessage, booking, success: true });
     } catch (error) {
-        console.log(error);
-        return res.status(500).send({ Message: "Internal server error", success: false });
+        if (!error.status || error.status >= 500) {
+            console.log(error);
+        }
+        return res.status(error.status || 500).send({ Message: error.message || "Internal server error", success: false });
     }
 };
 
@@ -601,9 +658,12 @@ export const CompleteBookingWithProof = async (req, res) => {
         const uploadedImage = await uploadImageBuffer(req.file.buffer, 'proconnect/completion-proof');
         booking.completionPhoto = uploadedImage.secure_url;
         booking.status = 'Completed';
+        booking.customerCompletionConfirmed = false;
+        booking.customerCompletedAt = undefined;
+        booking.customerCompletedBy = undefined;
         await booking.save();
 
-        return res.status(200).send({ Message: "Completion proof submitted for admin review", booking, success: true });
+        return res.status(200).send({ Message: "Completion proof submitted. Waiting for customer confirmation.", booking, success: true });
     } catch (error) {
         console.log(error);
         return res.status(500).send({ Message: error.message || "Unable to submit completion proof", success: false });
@@ -641,7 +701,6 @@ export const CreateSafepayCheckout = async (req, res) => {
         const session = await safepay.payments.session.setup({
             merchant_api_key: process.env.SAFEPAY_API_KEY,
             mode: 'payment',
-            entry_mode: 'web',
             currency: 'PKR',
             amount,
             description: `${booking.serviceCategory} service - Order #${booking._id.toString().slice(-8)}`,
@@ -649,8 +708,7 @@ export const CreateSafepayCheckout = async (req, res) => {
             customer_name: booking.customerId?.name || 'Customer',
             metadata: {
                 order_id: booking._id.toString(),
-                source: 'proconnect',
-                provider: booking.providerId?.name || 'Provider'
+                source: 'proconnect'
             }
         });
         const tracker = getSafepayTrackerToken(session);
@@ -900,6 +958,10 @@ export const ReviewBooking = async (req, res) => {
 
         if (booking.status !== 'Completed') {
             return res.status(400).send({ Message: "You can review after the booking is completed", success: false });
+        }
+
+        if (!booking.customerCompletionConfirmed) {
+            return res.status(400).send({ Message: "Please confirm the completed work before reviewing", success: false });
         }
 
         const existingReview = await Review.findOne({ bookingId: booking._id });

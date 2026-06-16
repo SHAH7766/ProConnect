@@ -124,6 +124,20 @@ const MyBookings = () => {
         }
     };
 
+    const confirmCustomerCompletion = async (bookingId) => {
+        if (!window.confirm('Confirm that the provider completed this work?')) return;
+
+        try {
+            const { data } = await axios.put(`${baseURL}/api/bookings/${bookingId}/status`, { customerCompletionConfirmed: true }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setToast({ show: true, message: data.Message || "Work completion confirmed.", type: 'success' });
+            fetchBookings();
+        } catch (err) {
+            setToast({ show: true, message: err.response?.data?.Message || "Unable to confirm completed work.", type: 'danger' });
+        }
+    };
+
     const updatePaymentStatus = async (bookingId, paymentStatus, successMessage, extraPayload = {}) => {
         try {
             const { data } = await axios.put(`${baseURL}/api/bookings/${bookingId}/status`, { paymentStatus, ...extraPayload }, {
@@ -560,6 +574,14 @@ const MyBookings = () => {
                                         {profile?.role === 'provider' && booking.status === 'In-Progress' && (
                                             <Button size="sm" variant="success" onClick={() => openCompletionProof(booking)}>Complete Work</Button>
                                         )}
+                                        {profile?.role === 'user' && booking.status === 'Completed' && booking.completionPhoto && !booking.customerCompletionConfirmed && (
+                                            <Button size="sm" variant="success" onClick={() => confirmCustomerCompletion(booking._id)}>
+                                                Work Has Completed
+                                            </Button>
+                                        )}
+                                        {booking.status === 'Completed' && booking.customerCompletionConfirmed && (
+                                            <Badge bg="success" className="align-self-center">Customer confirmed</Badge>
+                                        )}
                                         {profile?.role === 'user' && booking.status === 'Accepted' && booking.paymentStatus !== 'Paid' && (
                                             <Button size="sm" variant="warning" onClick={() => startSafepayCheckout(booking._id)} disabled={payingBookingId === booking._id}>
                                                 {payingBookingId === booking._id ? (
@@ -572,10 +594,13 @@ const MyBookings = () => {
                                                 )}
                                             </Button>
                                         )}
-                                        {isAdmin && booking.status === 'Completed' && booking.paymentStatus === 'Paid' && (
+                                        {isAdmin && booking.status === 'Completed' && booking.paymentStatus === 'Paid' && booking.customerCompletionConfirmed && (
                                             <Button size="sm" variant="success" onClick={() => releaseBookingPayment(booking)}>
                                                 Release Payment
                                             </Button>
+                                        )}
+                                        {isAdmin && booking.status === 'Completed' && booking.paymentStatus === 'Paid' && !booking.customerCompletionConfirmed && (
+                                            <Badge bg="secondary" className="align-self-center">Waiting for customer</Badge>
                                         )}
                                         {['Accepted', 'In-Progress'].includes(booking.status) && ['Paid', 'Released'].includes(booking.paymentStatus) && (
                                             <Button size="sm" variant="outline-primary" onClick={() => openChat(booking)}>
@@ -624,7 +649,7 @@ const MyBookings = () => {
                                                 Complain
                                             </Button>
                                         )}
-                                        {profile?.role === 'user' && booking.status === 'Completed' && !booking.hasReview && (
+                                        {profile?.role === 'user' && booking.status === 'Completed' && booking.customerCompletionConfirmed && !booking.hasReview && (
                                             <Button size="sm" variant="outline-warning" onClick={() => openReview(booking)}>
                                                 <FiStar className="me-1" />
                                                 Review

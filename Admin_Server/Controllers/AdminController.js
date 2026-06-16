@@ -1,8 +1,11 @@
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 import User from '../Model/User.js';
 import Provider from '../Model/Provider.js';
 import Booking from '../Model/Booking.js';
 import Complaint from '../Model/Complaint.js';
+import Message from '../Model/Message.js';
+import Review from '../Model/Review.js';
 import { ComparePassword } from '../../Server/Auth/Hash.js';
 
 const accountFields = '-password -sandboxBankAccount.transactions';
@@ -249,6 +252,50 @@ export const GetAllBookings = async (req, res) => {
       .lean();
 
     return res.send({ bookings, success: true });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).send({ Message: 'Internal server error', success: false });
+  }
+};
+
+export const DeleteAllBookings = async (req, res) => {
+  try {
+    const bookings = await Booking.find().select('_id');
+    const bookingIds = bookings.map((booking) => booking._id);
+
+    if (bookingIds.length === 0) {
+      return res.send({ Message: 'No bookings to delete', deletedCount: 0, success: true });
+    }
+
+    const removedReviews = await Review.find({ bookingId: { $in: bookingIds } }).select('providerId');
+    const affectedProviderIds = [
+      ...new Set(removedReviews.map((review) => review.providerId?.toString()).filter(Boolean))
+    ];
+
+    await Promise.all([
+      Message.deleteMany({ bookingId: { $in: bookingIds } }),
+      Review.deleteMany({ bookingId: { $in: bookingIds } }),
+      Complaint.deleteMany({ bookingId: { $in: bookingIds } }),
+      Booking.deleteMany({ _id: { $in: bookingIds } })
+    ]);
+
+    await Promise.all(affectedProviderIds.map(async (providerId) => {
+      const stats = await Review.aggregate([
+        { $match: { providerId: new mongoose.Types.ObjectId(providerId) } },
+        { $group: { _id: '$providerId', average: { $avg: '$rating' }, count: { $sum: 1 } } }
+      ]);
+
+      await Provider.findByIdAndUpdate(providerId, {
+        ratingAverage: stats[0] ? Number(stats[0].average.toFixed(1)) : 3.2,
+        ratingCount: stats[0]?.count || 0
+      });
+    }));
+
+    return res.send({
+      Message: `Deleted ${bookingIds.length} booking${bookingIds.length === 1 ? '' : 's'} successfully`,
+      deletedCount: bookingIds.length,
+      success: true
+    });
   } catch (error) {
     console.log(error);
     return res.status(500).send({ Message: 'Internal server error', success: false });

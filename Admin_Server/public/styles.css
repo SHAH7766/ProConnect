@@ -419,6 +419,11 @@ th {
   background: #fef3c7;
 }
 
+.badge.danger {
+  color: #7f1d1d;
+  background: #fee2e2;
+}
+
 .actions {
   display: flex;
   justify-content: flex-end;

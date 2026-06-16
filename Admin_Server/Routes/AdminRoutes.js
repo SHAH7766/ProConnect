@@ -4,6 +4,7 @@ import {
   AdminLogin,
   AdminMe,
   DeactivateProvider,
+  DeleteAllBookings,
   DeleteProviderAccount,
   DeleteUserAccount,
   GetAccounts,
@@ -26,6 +27,7 @@ adminRouter.get('/accounts', GetAccounts);
 adminRouter.get('/users', GetUsers);
 adminRouter.get('/providers', GetProviders);
 adminRouter.get('/allbooking', GetAllBookings);
+adminRouter.delete('/allbooking', DeleteAllBookings);
 adminRouter.put('/providers/:id/activate', ActivateProvider);
 adminRouter.put('/providers/:id/deactivate', DeactivateProvider);
 adminRouter.delete('/users/:id', DeleteUserAccount);

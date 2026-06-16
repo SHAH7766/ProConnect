@@ -61,7 +61,16 @@ const bookingSchema = new mongoose.Schema({
     enum: ['Requested', 'Accepted', 'In-Progress', 'Completed', 'Cancelled', 'Disputed'],
     default: 'Requested'
   },
-  completionPhoto: String
+  completionPhoto: String,
+  customerCompletionConfirmed: {
+    type: Boolean,
+    default: false
+  },
+  customerCompletedAt: Date,
+  customerCompletedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'user'
+  }
 }, { timestamps: true });
 
 export default mongoose.models.Booking || mongoose.model('Booking', bookingSchema);

@@ -21,6 +21,10 @@ const emptyState = document.getElementById('emptyState');
 const searchInput = document.getElementById('searchInput');
 const refreshButton = document.getElementById('refreshButton');
 const logoutButton = document.getElementById('logoutButton');
+const bookingsHeader = document.getElementById('bookingsHeader');
+const bookingsTotal = document.getElementById('bookingsTotal');
+const deleteAllBookings = document.getElementById('deleteAllBookings');
+const backToAccounts = document.getElementById('backToAccounts');
 const toast = document.getElementById('toast');
 const navItems = document.querySelectorAll('.nav-item');
 const topbarTitle = document.querySelector('.topbar h1');
@@ -106,6 +110,17 @@ const statusBadge = (account) => {
     : '<span class="badge pending">PENDING</span>';
 };
 
+const bookingStatusBadge = (value = '') => {
+  const status = String(value || 'Pending');
+  const className = status === 'Completed' || status === 'Released'
+    ? 'provider'
+    : status === 'Cancelled' || status === 'Disputed' || status === 'Refunded'
+      ? 'danger'
+      : 'pending';
+
+  return `<span class="badge ${className}">${escapeHtml(status.toUpperCase())}</span>`;
+};
+
 const actionButtons = (account) => {
   const deleteAction = account.type === 'provider' ? 'delete-provider' : 'delete-user';
   const canDelete = account.role !== 'admin';
@@ -159,7 +174,10 @@ const renderBookings = () => {
       </td>
       <td>${escapeHtml(b.serviceCategory || '')}</td>
       <td>${formatDate(b.scheduledDate)}</td>
-      <td>${escapeHtml(b.status || '')}</td>
+      <td>${bookingStatusBadge(b.status)}</td>
+      <td>${bookingStatusBadge(b.paymentStatus)}</td>
+      <td>${b.customerCompletionConfirmed ? '<span class="badge provider">CONFIRMED</span>' : '<span class="badge pending">WAITING</span>'}</td>
+      <td>${b.paymentRelease?.releasedAmount ? `PKR ${escapeHtml(String(b.paymentRelease.releasedAmount))}` : '<span class="muted">Not released</span>'}</td>
       <td>${escapeHtml(String(b.charges || 0))}</td>
     </tr>
   `).join('');
@@ -195,7 +213,7 @@ const loadDashboard = async () => {
                   <th class="actions-header">Actions</th>
                 </tr>
   `;
-  document.getElementById('bookingsHeader')?.classList.add('hidden');
+  bookingsHeader?.classList.add('hidden');
   renderAccounts();
   setView(true);
 };
@@ -205,6 +223,10 @@ const loadBookings = async () => {
   state.bookings = data.bookings || [];
   state.view = 'bookings';
   topbarTitle.textContent = 'Bookings';
+  bookingsHeader?.classList.remove('hidden');
+  if (bookingsTotal) {
+    bookingsTotal.textContent = `Total: ${state.bookings.length}`;
+  }
   tableHead.innerHTML = `
                 <tr>
                   <th>Customer</th>
@@ -212,11 +234,41 @@ const loadBookings = async () => {
                   <th>Service</th>
                   <th>Scheduled</th>
                   <th>Status</th>
+                  <th>Payment</th>
+                  <th>Customer</th>
+                  <th>Released</th>
                   <th>Charges</th>
                 </tr>
   `;
   renderBookings();
   setView(true);
+};
+
+const handleDeleteAllBookings = async () => {
+  if (state.bookings.length === 0) {
+    showToast('No bookings to delete');
+    return;
+  }
+
+  if (!window.confirm(`Delete all ${state.bookings.length} bookings? This cannot be undone.`)) {
+    return;
+  }
+
+  try {
+    deleteAllBookings.disabled = true;
+    const data = await request('/allbooking', { method: 'DELETE' });
+    state.bookings = [];
+    await loadBookings();
+    await loadDashboard();
+    document.querySelector('.nav-item[data-view="bookings"]')?.classList.add('active');
+    document.querySelector('.nav-item:not([data-view])')?.classList.remove('active');
+    await loadBookings();
+    showToast(data.Message || 'All bookings deleted');
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    deleteAllBookings.disabled = false;
+  }
 };
 
 const logout = () => {
@@ -316,6 +368,15 @@ refreshButton.addEventListener('click', () => {
   runner()
     .then(() => showToast('Dashboard refreshed'))
     .catch((error) => showToast(error.message));
+});
+
+deleteAllBookings?.addEventListener('click', handleDeleteAllBookings);
+
+backToAccounts?.addEventListener('click', async (event) => {
+  event.preventDefault();
+  navItems.forEach((b) => b.classList.remove('active'));
+  document.querySelector('.nav-item:not([data-view])')?.classList.add('active');
+  await loadDashboard().catch((error) => showToast(error.message));
 });
 
 logoutButton.addEventListener('click', logout);
