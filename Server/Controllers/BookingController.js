@@ -721,6 +721,18 @@ export const CreateSafepayCheckout = async (req, res) => {
                 source: 'proconnect'
             }
         });
+
+        // Debug: log important fields from session (avoid logging secrets)
+        try {
+            console.log('Safepay session:', {
+                ok: Boolean(session),
+                tracker: session?.data?.tracker || null,
+                state: session?.data?.state || null
+            });
+        } catch (e) {
+            console.error('Safepay session logging failed:', e?.message || e);
+        }
+
         const tracker = getSafepayTrackerToken(session);
 
         if (!tracker) {
@@ -728,6 +740,13 @@ export const CreateSafepayCheckout = async (req, res) => {
         }
 
         const passport = await safepay.client.passport.create();
+        // Debug: log presence of passport token
+        try {
+            console.log('Safepay passport token exists:', Boolean(getSafepayPassportToken(passport)));
+        } catch (e) {
+            console.error('Safepay passport logging failed:', e?.message || e);
+        }
+
         const tbt = getSafepayPassportToken(passport);
         const clientUrl = resolveClientUrl(req);
         const checkoutUrl = safepay.checkout.createCheckoutUrl({
