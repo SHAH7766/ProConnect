@@ -52,7 +52,7 @@ const Login = () => {
         setTimeout(() => {
           if (data.role === 'provider') navigate('/profile');
           else if (data.role === 'admin') navigate('/allusers');
-          else navigate(location.state?.from || '/providers', { replace: true });
+          else navigate(location.state?.from || '/providers', { replace: true, state: location.state });
         }, 1000);
       } else {
         setToast({ show: true, message: data.Message || 'Invalid credentials', type: 'danger' });

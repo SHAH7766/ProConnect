@@ -116,11 +116,17 @@ const getSafepayClient = () => {
 };
 
 const resolveClientUrl = (req) => {
+    // Always prioritize CLIENT_URL from environment
     const configuredUrl = process.env.CLIENT_URL?.trim();
-    if (configuredUrl) return configuredUrl.replace(/\/$/, '');
+    if (configuredUrl) {
+        return configuredUrl.replace(/\/$/, '');
+    }
 
+    // Fallback to request origin only if no CLIENT_URL is configured
     const origin = req.get('origin') || req.get('referer');
-    if (origin) return origin.replace(/\/$/, '');
+    if (origin) {
+        return origin.replace(/\/$/, '');
+    }
 
     return 'http://localhost:5173';
 };

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import axios from 'axios'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { Alert, Badge, Button, Col, Container, Form, Row, Spinner, Toast, ToastContainer } from 'react-bootstrap'
 import { FiCalendar, FiCheckCircle, FiDollarSign, FiEdit3, FiImage, FiMapPin, FiNavigation, FiSend, FiStar, FiTrendingUp, FiX } from 'react-icons/fi'
 import { API_BASE_URL } from '../config/api'
@@ -20,6 +20,7 @@ const formatCompletionRate = (completionRate) => (
 const Detail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const baseURL = API_BASE_URL;
   const token = localStorage.getItem('token');
   const todayDateValue = getTodayDateValue();
@@ -43,6 +44,12 @@ const Detail = () => {
   useEffect(() => {
     fetchProvider();
   }, [id]);
+
+  useEffect(() => {
+    if (location?.state?.description) {
+      setForm((current) => ({ ...current, description: location.state.description }));
+    }
+  }, [location]);
 
   const fetchProvider = async () => {
     try {

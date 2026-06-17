@@ -129,10 +129,6 @@ const ForgotPasswordForm = () => {
                       <Button variant="primary" onClick={handleSendLink} disabled={loading.link || loading.otp}>
                         {loading.link ? "Sending Link..." : "Send Reset Link"}
                       </Button>
-                      <div className="text-center text-muted small fw-bold">OR</div>
-                      <Button variant="outline-primary" onClick={() => handleRequestOtp(false)} disabled={loading.link || loading.otp}>
-                        {loading.otp ? "Sending OTP..." : "Reset via OTP"}
-                      </Button>
                     </div>
                   </Form>
                 </>

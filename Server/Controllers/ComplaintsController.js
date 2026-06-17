@@ -1,5 +1,6 @@
 import Complaint from "../Model/Complaint.js";
 import Booking from "../Model/Booking.js";
+import Provider from "../Model/Provider.js";
 
 const isAdmin = (req) => req.user?.role === 'admin';
 const canUseComplaintForm = (req) => ['user', 'admin'].includes(req.user?.role);
@@ -36,7 +37,18 @@ export const CustomerService = async (req, res) => {
         }
 
         await Complaint.create({ message, TypeOfComplaint, customerId, providerId, bookingId })
-        return res.status(200).send({ Message: "Complaint submitted successfully", success: true })
+        
+        // Deactivate and ban the provider when complaint is filed
+        const provider = await Provider.findById(providerId);
+        if (provider) {
+            provider.isActive = false;
+            provider.isBanned = true;
+            provider.bannedAt = new Date();
+            provider.bannedReason = `Account banned due to complaint: ${TypeOfComplaint}`;
+            await provider.save();
+        }
+        
+        return res.status(200).send({ Message: "Complaint submitted successfully. Provider account has been deactivated and banned.", success: true })
     } catch (error) {
         console.log(error)
         return res.status(500).send({ Message: "Internal server error", success: false })
@@ -60,12 +72,35 @@ export const GetAllComplaints = async (req, res) => {
 }
 export const UpdateComplaintStatus = async (req, res) => {
     const { id } = req.params
+    const { status, action } = req.body
     try {
         if (!isAdmin(req)) {
             return res.status(403).send({ Message: "Only admins can update complaint status", success: false });
         }
 
-        await Complaint.findByIdAndUpdate(id, req.body)
+        const complaint = await Complaint.findById(id);
+        if (!complaint) {
+            return res.status(404).send({ Message: "Complaint not found", success: false });
+        }
+
+        const updateData = {};
+        if (status) updateData.status = status;
+
+        await Complaint.findByIdAndUpdate(id, updateData);
+
+        // If admin is taking action to ban the provider (e.g., when resolving complaint)
+        if (action === 'ban_provider' && complaint.providerId) {
+            const provider = await Provider.findById(complaint.providerId);
+            if (provider) {
+                provider.isActive = false;
+                provider.isBanned = true;
+                provider.bannedAt = new Date();
+                provider.bannedReason = `Banned by admin - Complaint ID: ${id}`;
+                await provider.save();
+                return res.status(200).send({ Message: "Complaint status updated and provider has been banned", success: true });
+            }
+        }
+
         return res.status(200).send({ Message: "Complaint status updated successfully", success: true })
     } catch (error) {
         console.log(error)

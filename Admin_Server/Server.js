@@ -93,7 +93,7 @@ app.get('/', (req, res) => {
 
 const PORT = process.env.ADMIN_PORT || 8081;
 app.listen(PORT, () => {
-  console.log(`Admin server is running at port ${PORT}`.bgBrightBlue);
+  console.log(`Admin server is running at port ${PORT}`.bgBlue);
 });
 
 void connectDatabase();

@@ -3,6 +3,7 @@ import {
   ActivateProvider,
   AdminLogin,
   AdminMe,
+  BanProvider,
   DeactivateProvider,
   DeleteAllBookings,
   DeleteProviderAccount,
@@ -11,7 +12,8 @@ import {
   GetAdminSummary,
   GetProviders,
   GetUsers,
-  GetAllBookings
+  GetAllBookings,
+  UnbanProvider
 } from '../Controllers/AdminController.js';
 import { VerifyAdminToken } from '../Middleware/AdminAuth.js';
 
@@ -30,6 +32,8 @@ adminRouter.get('/allbooking', GetAllBookings);
 adminRouter.delete('/allbooking', DeleteAllBookings);
 adminRouter.put('/providers/:id/activate', ActivateProvider);
 adminRouter.put('/providers/:id/deactivate', DeactivateProvider);
+adminRouter.put('/providers/:id/ban', BanProvider);
+adminRouter.put('/providers/:id/unban', UnbanProvider);
 adminRouter.delete('/users/:id', DeleteUserAccount);
 adminRouter.delete('/providers/:id', DeleteProviderAccount);
 

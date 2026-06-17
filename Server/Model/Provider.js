@@ -117,6 +117,18 @@ const provider=new mongoose.Schema({
     isActive:{
         type:Boolean,
         default:false
+    },
+    isBanned:{
+        type:Boolean,
+        default:false
+    },
+    bannedAt:{
+        type:Date,
+        default:null
+    },
+    bannedReason:{
+        type:String,
+        default:''
     }
 },{timestamps:true})
 export default mongoose.model('provider',provider)

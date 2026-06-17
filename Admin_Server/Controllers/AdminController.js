@@ -23,6 +23,9 @@ const normalizeAccount = (account, type) => ({
   experience: account.experience,
   charges: account.charges,
   isActive: account.isActive,
+  isBanned: account.isBanned || false,
+  bannedAt: account.bannedAt,
+  bannedReason: account.bannedReason,
   sandboxBankAccount: account.sandboxBankAccount,
   createdAt: account.createdAt,
   updatedAt: account.updatedAt
@@ -221,6 +224,54 @@ export const DeleteUserAccount = async (req, res) => {
 
     await selectedUser.deleteOne();
     return res.send({ Message: 'User deleted successfully', success: true });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).send({ Message: 'Internal server error', success: false });
+  }
+};
+
+export const BanProvider = async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const selectedProvider = await Provider.findById(req.params.id).select(accountFields);
+    if (!selectedProvider) {
+      return res.status(404).send({ Message: 'Provider not found', success: false });
+    }
+
+    selectedProvider.isBanned = true;
+    selectedProvider.isActive = false;
+    selectedProvider.bannedAt = new Date();
+    selectedProvider.bannedReason = reason || 'Banned by admin';
+    await selectedProvider.save();
+
+    return res.send({
+      Message: 'Provider account has been banned',
+      provider: normalizeAccount(selectedProvider, 'provider'),
+      success: true
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).send({ Message: 'Internal server error', success: false });
+  }
+};
+
+export const UnbanProvider = async (req, res) => {
+  try {
+    const selectedProvider = await Provider.findById(req.params.id).select(accountFields);
+    if (!selectedProvider) {
+      return res.status(404).send({ Message: 'Provider not found', success: false });
+    }
+
+    selectedProvider.isBanned = false;
+    selectedProvider.bannedAt = null;
+    selectedProvider.bannedReason = '';
+    await selectedProvider.save();
+
+    return res.send({
+      Message: 'Provider account ban has been lifted',
+      provider: normalizeAccount(selectedProvider, 'provider'),
+      success: true
+    });
   } catch (error) {
     console.log(error);
     return res.status(500).send({ Message: 'Internal server error', success: false });

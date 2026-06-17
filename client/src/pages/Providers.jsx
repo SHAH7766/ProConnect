@@ -30,10 +30,11 @@ const Providers = () => {
 
   const handleViewProfile = (providerId) => {
     const profilePath = `/detail/${providerId}`;
+    const navState = { from: profilePath, description: userNeed };
     if (!token) {
-      navigate('/login', { state: { from: profilePath } });
+      navigate('/login', { state: navState });
     } else {
-      navigate(profilePath);
+      navigate(profilePath, { state: navState });
     }
   };
 
